@@ -17,6 +17,12 @@ email:    admin@demo.nivaran.in
 password: Admin@2026
 ```
 
+## Officer
+```
+email: officer.public@demo.nivaran.in
+password: Officer@2026
+```
+
 > Admins always see every complaint regardless of department. If you want the
 > admin (or an officer) to act on department-scoped complaints, assign them to
 > a department in Prisma Studio (`npm --prefix server run prisma:studio`).
