@@ -1,0 +1,66 @@
+/** Malayalam — partial. */
+const ml = {
+  common: {
+    signOut: 'സൈൻ ഔട്ട്',
+    language: 'ഭാഷ',
+    markAllRead: 'എല്ലാം വായിച്ചതായി അടയാളപ്പെടുത്തുക',
+    save: 'സംരക്ഷിക്കുക',
+    submit: 'സമർപ്പിക്കുക',
+    close: 'അടയ്ക്കുക',
+    refresh: 'പുതുക്കുക',
+    viewAll: 'എല്ലാം കാണുക',
+    portalCitizen: 'പൗര പോർട്ടൽ',
+  },
+  citizen: {
+    portalEyebrow: 'പൗര പോർട്ടൽ',
+    nav: {
+      dashboard: 'ഡാഷ്ബോർഡ്',
+      submit: 'പരാതി സമർപ്പിക്കുക',
+      track: 'പരാതി ട്രാക്ക്',
+      complaints: 'എന്റെ പരാതികൾ',
+      notifications: 'അറിയിപ്പുകൾ',
+      assistant: 'AI സഹായി',
+      profile: 'പ്രൊഫൈൽ',
+    },
+    dashboard: {
+      welcome: 'സ്വാഗതം',
+      headerTrack: 'ട്രാക്ക്',
+      headerNew: 'പുതിയ പരാതി',
+      stats: {
+        totalFiled: 'ആകെ ഫയൽ ചെയ്തത്',
+        pending: 'തീരുമാനമാകാത്തവ',
+        resolved: 'പരിഹരിച്ചത്',
+        escalated: 'ഉയർത്തപ്പെട്ടത്',
+      },
+      quickActions: 'വേഗ പ്രവർത്തനങ്ങൾ',
+      action: {
+        fileNew: 'പുതിയ പരാതി സമർപ്പിക്കുക',
+        track: 'പരാതി ട്രാക്ക്',
+        assistant: 'AI സഹായി',
+        notifications: 'അറിയിപ്പുകൾ',
+      },
+      recent: { title: 'സമീപകാല പ്രവർത്തനം', empty: 'ഇതുവരെ പരാതികളൊന്നുമില്ല' },
+      insights: { title: 'AI ഉൾക്കാഴ്ചകൾ', topCategory: 'പ്രധാന വിഭാഗം', confidence: 'AI ആത്മവിശ്വാസം', resolutionTitle: 'പരിഹാര നിരക്ക്' },
+    },
+    submit: {
+      title: 'പരാതി സമർപ്പിക്കുക',
+      fields: { title: 'പരാതി തലക്കെട്ട്', description: 'വിവരണം', category: 'വിഭാഗം', location: 'സ്ഥലം' },
+      attachments: 'അറ്റാച്ച്മെന്റുകൾ',
+      attach: { photo: 'ഫോട്ടോ', video: 'വീഡിയോ', audio: 'ഓഡിയോ', record: 'റെക്കോർഡ്', stop: 'നിർത്തുക' },
+      cta: { submit: 'പരാതി സമർപ്പിക്കുക' },
+      ai: { title: 'AI വിശകലനം', analyze: 'AI ഉപയോഗിച്ച് വിശകലനം ചെയ്യുക' },
+    },
+    myComplaints: { title: 'എന്റെ പരാതികൾ' },
+    track: { title: 'പരാതി ട്രാക്ക്', cta: 'ട്രാക്ക്' },
+    notifications: { title: 'അറിയിപ്പുകൾ' },
+    profile: { title: 'എന്റെ പ്രൊഫൈൽ' },
+    assistant: { title: 'AI സഹായി', send: 'അയക്കുക' },
+  },
+  auth: {
+    citizenLogin: { title: 'വീണ്ടും സ്വാഗതം', cta: 'സൈൻ ഇൻ', email: 'ഇമെയിൽ', password: 'പാസ്‌വേർഡ്' },
+    signup: { title: 'അക്കൗണ്ട് സൃഷ്ടിക്കുക', cta: 'അക്കൗണ്ട് സൃഷ്ടിക്കുക' },
+  },
+  status: { submitted: 'സമർപ്പിച്ചു', underReview: 'പരിശോധനയിൽ', assigned: 'നൽകി', inProgress: 'പുരോഗതിയിൽ', resolved: 'പരിഹരിച്ചു' },
+  priority: { low: 'കുറവ്', medium: 'മധ്യമം', high: 'ഉയർന്ന', critical: 'ഗുരുതരം' },
+};
+export default ml;

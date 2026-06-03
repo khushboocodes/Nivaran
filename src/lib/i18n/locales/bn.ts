@@ -1,0 +1,66 @@
+/** Bengali — partial. */
+const bn = {
+  common: {
+    signOut: 'সাইন আউট',
+    language: 'ভাষা',
+    markAllRead: 'সব পড়া হয়েছে চিহ্নিত করুন',
+    save: 'সংরক্ষণ',
+    submit: 'জমা দিন',
+    close: 'বন্ধ',
+    refresh: 'রিফ্রেশ',
+    viewAll: 'সব দেখুন',
+    portalCitizen: 'নাগরিক পোর্টাল',
+  },
+  citizen: {
+    portalEyebrow: 'নাগরিক পোর্টাল',
+    nav: {
+      dashboard: 'ড্যাশবোর্ড',
+      submit: 'অভিযোগ জমা',
+      track: 'অভিযোগ ট্র্যাক',
+      complaints: 'আমার অভিযোগ',
+      notifications: 'বিজ্ঞপ্তি',
+      assistant: 'AI সহায়ক',
+      profile: 'প্রোফাইল',
+    },
+    dashboard: {
+      welcome: 'স্বাগতম',
+      headerTrack: 'ট্র্যাক',
+      headerNew: 'নতুন অভিযোগ',
+      stats: {
+        totalFiled: 'মোট দায়ের',
+        pending: 'মুলতুবি',
+        resolved: 'সমাধান হয়েছে',
+        escalated: 'উত্থাপিত',
+      },
+      quickActions: 'দ্রুত কর্ম',
+      action: {
+        fileNew: 'নতুন অভিযোগ দায়ের',
+        track: 'অভিযোগ ট্র্যাক',
+        assistant: 'AI সহায়ক',
+        notifications: 'বিজ্ঞপ্তি',
+      },
+      recent: { title: 'সাম্প্রতিক কার্যকলাপ', empty: 'এখনও কোনো অভিযোগ নেই' },
+      insights: { title: 'AI অন্তর্দৃষ্টি', topCategory: 'শীর্ষ বিভাগ', confidence: 'AI আত্মবিশ্বাস', resolutionTitle: 'সমাধান হার' },
+    },
+    submit: {
+      title: 'অভিযোগ জমা',
+      fields: { title: 'অভিযোগ শিরোনাম', description: 'বিবরণ', category: 'বিভাগ', location: 'অবস্থান' },
+      attachments: 'সংযুক্তি',
+      attach: { photo: 'ছবি', video: 'ভিডিও', audio: 'অডিও', record: 'রেকর্ড', stop: 'থামান' },
+      cta: { submit: 'অভিযোগ জমা দিন' },
+      ai: { title: 'AI বিশ্লেষণ', analyze: 'AI দিয়ে বিশ্লেষণ' },
+    },
+    myComplaints: { title: 'আমার অভিযোগ' },
+    track: { title: 'অভিযোগ ট্র্যাক', cta: 'ট্র্যাক' },
+    notifications: { title: 'বিজ্ঞপ্তি' },
+    profile: { title: 'আমার প্রোফাইল' },
+    assistant: { title: 'AI সহায়ক', send: 'পাঠান' },
+  },
+  auth: {
+    citizenLogin: { title: 'আবার স্বাগতম', cta: 'সাইন ইন', email: 'ইমেল', password: 'পাসওয়ার্ড' },
+    signup: { title: 'অ্যাকাউন্ট তৈরি', cta: 'অ্যাকাউন্ট তৈরি' },
+  },
+  status: { submitted: 'জমা', underReview: 'পর্যালোচনায়', assigned: 'নিযুক্ত', inProgress: 'অগ্রগতিতে', resolved: 'সমাধান' },
+  priority: { low: 'কম', medium: 'মাঝারি', high: 'উচ্চ', critical: 'জরুরি' },
+};
+export default bn;

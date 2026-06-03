@@ -1,0 +1,66 @@
+/** Gujarati — partial. */
+const gu = {
+  common: {
+    signOut: 'સાઇન આઉટ',
+    language: 'ભાષા',
+    markAllRead: 'બધું વાંચ્યું તરીકે ચિહ્નિત કરો',
+    save: 'સાચવો',
+    submit: 'સબમિટ',
+    close: 'બંધ કરો',
+    refresh: 'રિફ્રેશ',
+    viewAll: 'બધું જુઓ',
+    portalCitizen: 'નાગરિક પોર્ટલ',
+  },
+  citizen: {
+    portalEyebrow: 'નાગરિક પોર્ટલ',
+    nav: {
+      dashboard: 'ડેશબોર્ડ',
+      submit: 'ફરિયાદ દાખલ કરો',
+      track: 'ફરિયાદ ટ્રૅક',
+      complaints: 'મારી ફરિયાદો',
+      notifications: 'સૂચનાઓ',
+      assistant: 'AI સહાયક',
+      profile: 'પ્રોફાઇલ',
+    },
+    dashboard: {
+      welcome: 'સ્વાગત છે',
+      headerTrack: 'ટ્રૅક',
+      headerNew: 'નવી ફરિયાદ',
+      stats: {
+        totalFiled: 'કુલ દાખલ',
+        pending: 'બાકી',
+        resolved: 'ઉકેલાયું',
+        escalated: 'એસ્કલેટ',
+      },
+      quickActions: 'ઝડપી ક્રિયાઓ',
+      action: {
+        fileNew: 'નવી ફરિયાદ દાખલ',
+        track: 'ફરિયાદ ટ્રૅક',
+        assistant: 'AI સહાયક',
+        notifications: 'સૂચનાઓ',
+      },
+      recent: { title: 'તાજેતરની પ્રવૃત્તિ', empty: 'હજુ સુધી ફરિયાદો નથી' },
+      insights: { title: 'AI આંતરદૃષ્ટિ', topCategory: 'મુખ્ય શ્રેણી', confidence: 'AI આત્મવિશ્વાસ', resolutionTitle: 'ઉકેલ દર' },
+    },
+    submit: {
+      title: 'ફરિયાદ દાખલ કરો',
+      fields: { title: 'ફરિયાદ શીર્ષક', description: 'વર્ણન', category: 'શ્રેણી', location: 'સ્થાન' },
+      attachments: 'જોડાણો',
+      attach: { photo: 'ફોટો', video: 'વિડિઓ', audio: 'ઑડિઓ', record: 'રેકોર્ડ', stop: 'રોકો' },
+      cta: { submit: 'ફરિયાદ સબમિટ કરો' },
+      ai: { title: 'AI વિશ્લેષણ', analyze: 'AI સાથે વિશ્લેષણ' },
+    },
+    myComplaints: { title: 'મારી ફરિયાદો' },
+    track: { title: 'ફરિયાદ ટ્રૅક', cta: 'ટ્રૅક' },
+    notifications: { title: 'સૂચનાઓ' },
+    profile: { title: 'મારી પ્રોફાઇલ' },
+    assistant: { title: 'AI સહાયક', send: 'મોકલો' },
+  },
+  auth: {
+    citizenLogin: { title: 'ફરી સ્વાગત છે', cta: 'સાઇન ઇન', email: 'ઇમેઇલ', password: 'પાસવર્ડ' },
+    signup: { title: 'એકાઉન્ટ બનાવો', cta: 'એકાઉન્ટ બનાવો' },
+  },
+  status: { submitted: 'દાખલ', underReview: 'સમીક્ષામાં', assigned: 'સોંપાયેલ', inProgress: 'પ્રગતિમાં', resolved: 'ઉકેલાયું' },
+  priority: { low: 'ઓછું', medium: 'મધ્યમ', high: 'ઉચ્ચ', critical: 'ગંભીર' },
+};
+export default gu;

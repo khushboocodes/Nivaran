@@ -1,0 +1,66 @@
+/** Marathi — partial. */
+const mr = {
+  common: {
+    signOut: 'साइन आउट',
+    language: 'भाषा',
+    markAllRead: 'सर्व वाचले म्हणून चिन्हांकित करा',
+    save: 'जतन करा',
+    submit: 'सबमिट',
+    close: 'बंद करा',
+    refresh: 'रिफ्रेश',
+    viewAll: 'सर्व पहा',
+    portalCitizen: 'नागरिक पोर्टल',
+  },
+  citizen: {
+    portalEyebrow: 'नागरिक पोर्टल',
+    nav: {
+      dashboard: 'डॅशबोर्ड',
+      submit: 'तक्रार दाखल करा',
+      track: 'तक्रार ट्रॅक',
+      complaints: 'माझ्या तक्रारी',
+      notifications: 'सूचना',
+      assistant: 'AI सहाय्यक',
+      profile: 'प्रोफाइल',
+    },
+    dashboard: {
+      welcome: 'स्वागत आहे',
+      headerTrack: 'ट्रॅक',
+      headerNew: 'नवीन तक्रार',
+      stats: {
+        totalFiled: 'एकूण दाखल',
+        pending: 'प्रलंबित',
+        resolved: 'सोडवलेले',
+        escalated: 'वाढवलेले',
+      },
+      quickActions: 'जलद क्रिया',
+      action: {
+        fileNew: 'नवीन तक्रार दाखल करा',
+        track: 'तक्रार ट्रॅक',
+        assistant: 'AI सहाय्यक',
+        notifications: 'सूचना',
+      },
+      recent: { title: 'अलीकडील क्रियाकलाप', empty: 'अद्याप तक्रारी नाहीत' },
+      insights: { title: 'AI अंतर्दृष्टी', topCategory: 'मुख्य श्रेणी', confidence: 'AI विश्वास', resolutionTitle: 'निराकरण दर' },
+    },
+    submit: {
+      title: 'तक्रार दाखल करा',
+      fields: { title: 'तक्रार शीर्षक', description: 'वर्णन', category: 'श्रेणी', location: 'स्थान' },
+      attachments: 'संलग्नक',
+      attach: { photo: 'फोटो', video: 'व्हिडिओ', audio: 'ऑडिओ', record: 'रेकॉर्ड', stop: 'थांबा' },
+      cta: { submit: 'तक्रार सबमिट करा' },
+      ai: { title: 'AI विश्लेषण', analyze: 'AI सह विश्लेषण करा' },
+    },
+    myComplaints: { title: 'माझ्या तक्रारी' },
+    track: { title: 'तक्रार ट्रॅक', cta: 'ट्रॅक' },
+    notifications: { title: 'सूचना' },
+    profile: { title: 'माझे प्रोफाइल' },
+    assistant: { title: 'AI सहाय्यक', send: 'पाठवा' },
+  },
+  auth: {
+    citizenLogin: { title: 'पुन्हा स्वागत आहे', cta: 'साइन इन', email: 'ईमेल', password: 'पासवर्ड' },
+    signup: { title: 'खाते तयार करा', cta: 'खाते तयार करा' },
+  },
+  status: { submitted: 'दाखल', underReview: 'समीक्षेत', assigned: 'नियुक्त', inProgress: 'प्रगतीत', resolved: 'सोडवले' },
+  priority: { low: 'कमी', medium: 'मध्यम', high: 'उच्च', critical: 'गंभीर' },
+};
+export default mr;

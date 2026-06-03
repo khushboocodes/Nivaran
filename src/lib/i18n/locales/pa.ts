@@ -1,0 +1,66 @@
+/** Punjabi — partial. */
+const pa = {
+  common: {
+    signOut: 'ਸਾਈਨ ਆਉਟ',
+    language: 'ਭਾਸ਼ਾ',
+    markAllRead: 'ਸਭ ਨੂੰ ਪੜ੍ਹਿਆ ਨਿਸ਼ਾਨਬੱਧ ਕਰੋ',
+    save: 'ਸੰਭਾਲੋ',
+    submit: 'ਜਮ੍ਹਾਂ ਕਰੋ',
+    close: 'ਬੰਦ ਕਰੋ',
+    refresh: 'ਰਿਫ੍ਰੈਸ਼',
+    viewAll: 'ਸਭ ਵੇਖੋ',
+    portalCitizen: 'ਨਾਗਰਿਕ ਪੋਰਟਲ',
+  },
+  citizen: {
+    portalEyebrow: 'ਨਾਗਰਿਕ ਪੋਰਟਲ',
+    nav: {
+      dashboard: 'ਡੈਸ਼ਬੋਰਡ',
+      submit: 'ਸ਼ਿਕਾਇਤ ਦਰਜ ਕਰੋ',
+      track: 'ਸ਼ਿਕਾਇਤ ਟਰੈਕ',
+      complaints: 'ਮੇਰੀਆਂ ਸ਼ਿਕਾਇਤਾਂ',
+      notifications: 'ਸੂਚਨਾਵਾਂ',
+      assistant: 'AI ਸਹਾਇਕ',
+      profile: 'ਪ੍ਰੋਫਾਈਲ',
+    },
+    dashboard: {
+      welcome: 'ਸੁਆਗਤ ਹੈ',
+      headerTrack: 'ਟਰੈਕ',
+      headerNew: 'ਨਵੀਂ ਸ਼ਿਕਾਇਤ',
+      stats: {
+        totalFiled: 'ਕੁੱਲ ਦਰਜ',
+        pending: 'ਬਕਾਇਆ',
+        resolved: 'ਹੱਲ',
+        escalated: 'ਉੱਚਾ ਚੁੱਕਿਆ',
+      },
+      quickActions: 'ਤੇਜ਼ ਕਾਰਵਾਈਆਂ',
+      action: {
+        fileNew: 'ਨਵੀਂ ਸ਼ਿਕਾਇਤ ਦਰਜ ਕਰੋ',
+        track: 'ਸ਼ਿਕਾਇਤ ਟਰੈਕ',
+        assistant: 'AI ਸਹਾਇਕ',
+        notifications: 'ਸੂਚਨਾਵਾਂ',
+      },
+      recent: { title: 'ਹਾਲੀਆ ਗਤੀਵਿਧੀ', empty: 'ਅਜੇ ਕੋਈ ਸ਼ਿਕਾਇਤ ਨਹੀਂ' },
+      insights: { title: 'AI ਸੂਝ', topCategory: 'ਮੁੱਖ ਸ਼੍ਰੇਣੀ', confidence: 'AI ਭਰੋਸਾ', resolutionTitle: 'ਹੱਲ ਦਰ' },
+    },
+    submit: {
+      title: 'ਸ਼ਿਕਾਇਤ ਦਰਜ ਕਰੋ',
+      fields: { title: 'ਸ਼ਿਕਾਇਤ ਸਿਰਲੇਖ', description: 'ਵਰਣਨ', category: 'ਸ਼੍ਰੇਣੀ', location: 'ਸਥਾਨ' },
+      attachments: 'ਅਟੈਚਮੈਂਟ',
+      attach: { photo: 'ਫੋਟੋ', video: 'ਵੀਡੀਓ', audio: 'ਆਡੀਓ', record: 'ਰਿਕਾਰਡ', stop: 'ਰੋਕੋ' },
+      cta: { submit: 'ਸ਼ਿਕਾਇਤ ਜਮ੍ਹਾਂ ਕਰੋ' },
+      ai: { title: 'AI ਵਿਸ਼ਲੇਸ਼ਣ', analyze: 'AI ਨਾਲ ਵਿਸ਼ਲੇਸ਼ਣ ਕਰੋ' },
+    },
+    myComplaints: { title: 'ਮੇਰੀਆਂ ਸ਼ਿਕਾਇਤਾਂ' },
+    track: { title: 'ਸ਼ਿਕਾਇਤ ਟਰੈਕ', cta: 'ਟਰੈਕ' },
+    notifications: { title: 'ਸੂਚਨਾਵਾਂ' },
+    profile: { title: 'ਮੇਰੀ ਪ੍ਰੋਫਾਈਲ' },
+    assistant: { title: 'AI ਸਹਾਇਕ', send: 'ਭੇਜੋ' },
+  },
+  auth: {
+    citizenLogin: { title: 'ਮੁੜ ਸੁਆਗਤ ਹੈ', cta: 'ਸਾਈਨ ਇਨ', email: 'ਈਮੇਲ', password: 'ਪਾਸਵਰਡ' },
+    signup: { title: 'ਖਾਤਾ ਬਣਾਓ', cta: 'ਖਾਤਾ ਬਣਾਓ' },
+  },
+  status: { submitted: 'ਦਰਜ', underReview: 'ਸਮੀਖਿਆ ਅਧੀਨ', assigned: 'ਨਿਯੁਕਤ', inProgress: 'ਜਾਰੀ', resolved: 'ਹੱਲ' },
+  priority: { low: 'ਘੱਟ', medium: 'ਦਰਮਿਆਨੀ', high: 'ਉੱਚੀ', critical: 'ਨਾਜ਼ੁਕ' },
+};
+export default pa;
