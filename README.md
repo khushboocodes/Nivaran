@@ -53,7 +53,7 @@ The single `npm run dev:all` script starts the Vite client and the API server si
 | Role | Email | Password |
 | --- | --- | --- |
 | Citizen | `citizen@demo.nivaran.in` | `Citizen@2026` |
-| Officer | `officer.public@demo.nivaran.in` | Officer@2026 |
+| Officer | `officer.public@demo.nivaran.in` | `Officer@2026` |
 | Admin | `admin@demo.nivaran.in` | `Admin@2026` |
 
 Officers are department-scoped — they only see complaints assigned to their department. Invite them from the Admin console → Users page and assign a department. See [DEMO_ACCOUNTS.md](DEMO_ACCOUNTS.md) for more details.
