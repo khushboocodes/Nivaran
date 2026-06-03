@@ -179,4 +179,8 @@ CI runs them on every push and PR. See [`.github/workflows/ci.yml`](.github/work
 
 ## License
 
-Private — replace this section with your project's license before publishing.
+Copyright (c) 2026 Nivaran. All rights reserved.
+
+This source code is made available for viewing purposes only.
+Copying, modification, distribution, or use of any kind is not permitted
+without explicit written permission from the author.
