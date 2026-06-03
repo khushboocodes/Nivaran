@@ -19,10 +19,18 @@ import { startSlaScheduler } from './services/sla';
 const app = new Hono();
 
 app.use('*', logger());
+
+// In production, restrict CORS to the known frontend origin.
+// PUBLIC_APP_URL is set to the Vercel deployment URL in production.
+// In development it defaults to localhost, allowing the Vite dev server.
+const allowedOrigins = process.env.PUBLIC_APP_URL
+  ? [process.env.PUBLIC_APP_URL, 'http://localhost:5173']
+  : ['http://localhost:5173', 'http://localhost:3000'];
+
 app.use(
   '*',
   cors({
-    origin: (origin) => origin ?? '',
+    origin: (origin) => (allowedOrigins.includes(origin ?? '') ? origin : allowedOrigins[0]),
     credentials: true,
   }),
 );
