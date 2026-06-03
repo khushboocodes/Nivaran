@@ -54,6 +54,7 @@ minio-data/
 .kiro/
 guidelines/
 PROJECT_NOTES.md
+ATTRIBUTIONS.md
 
 # --- OS junk ----------------------------------------------------------------
 .DS_Store
