@@ -279,4 +279,31 @@ users.patch('/:id', async (c) => {
   return c.json({ user: publicUser(updated) });
 });
 
+users.delete('/:id', async (c) => {
+  const session = getUser(c);
+  if (!session) return c.json({ code: 'unauthenticated' }, 401);
+  if (session.role !== 'admin') return c.json({ code: 'forbidden' }, 403);
+
+  const id = c.req.param('id');
+
+  if (id === session.id) {
+    return c.json({ code: 'self_delete_forbidden', message: 'You cannot delete your own account' }, 400);
+  }
+
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target) return c.json({ code: 'not_found' }, 404);
+
+  await prisma.user.delete({ where: { id } });
+
+  await audit({
+    actorId: session.id,
+    action: 'user.delete',
+    entity: 'user',
+    entityId: id,
+    before: publicUser(target),
+  });
+
+  return c.json({ ok: true });
+});
+
 export default users;

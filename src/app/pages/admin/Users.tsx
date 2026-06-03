@@ -89,6 +89,14 @@ export default function AdminUsers() {
     },
   });
 
+  const deleteMutation = useMutation<{ ok: boolean }, ApiError, string>({
+    mutationFn: (id) => apiClient.del<{ ok: boolean }>(`/users/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      setEditing(null);
+    },
+  });
+
   return (
     <AdminLayout>
       <div className="p-6">
@@ -212,8 +220,11 @@ export default function AdminUsers() {
           departments={departments}
           isPending={updateMutation.isPending}
           error={updateMutation.error?.message ?? null}
+          isDeleting={deleteMutation.isPending}
+          deleteError={deleteMutation.error?.message ?? null}
           onClose={() => setEditing(null)}
           onSubmit={(patch) => updateMutation.mutate({ id: editing.id, ...patch })}
+          onDelete={() => deleteMutation.mutate(editing.id)}
         />
       )}
     </AdminLayout>
@@ -327,14 +338,18 @@ interface EditUserModalProps {
   departments: { id: string; name: string }[];
   isPending: boolean;
   error: string | null;
+  isDeleting: boolean;
+  deleteError: string | null;
   onClose: () => void;
   onSubmit: (patch: { name?: string; role?: Role; departmentId?: string | null }) => void;
+  onDelete: () => void;
 }
 
-function EditUserModal({ user, departments, isPending, error, onClose, onSubmit }: EditUserModalProps) {
+function EditUserModal({ user, departments, isPending, error, isDeleting, deleteError, onClose, onSubmit, onDelete }: EditUserModalProps) {
   const [name, setName] = useState(user.name);
   const [role, setRole] = useState<Role>(user.role);
   const [departmentId, setDepartmentId] = useState<string>(user.departmentId ?? '');
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
@@ -406,6 +421,45 @@ function EditUserModal({ user, departments, isPending, error, onClose, onSubmit 
             {isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" strokeWidth={2} /> : null}
             Save changes
           </Button>
+
+          <div className="pt-2 border-t border-[#E5EAF3]">
+            {!confirmDelete ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConfirmDelete(true)}
+                className="w-full h-10 rounded-[14px] border-[#FEE2E2] text-[#EF4444] hover:bg-[#FEF2F2]"
+              >
+                Delete user
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-center text-[#EF4444] font-medium">
+                  Are you sure? This cannot be undone.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setConfirmDelete(false)}
+                    className="flex-1 h-9 rounded-[14px] border-[#E5EAF3] text-[#7C8AA5]"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={isDeleting}
+                    onClick={onDelete}
+                    className="flex-1 h-9 rounded-[14px] bg-[#EF4444] hover:bg-[#DC2626] text-white disabled:opacity-60"
+                  >
+                    {isDeleting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" strokeWidth={2} /> : null}
+                    Yes, delete
+                  </Button>
+                </div>
+                {deleteError && <p className="text-xs text-[#EF4444]">{deleteError}</p>}
+              </div>
+            )}
+          </div>
         </form>
       </Card>
     </div>
