@@ -53,9 +53,10 @@ The single `npm run dev:all` script starts the Vite client and the API server si
 | Role | Email | Password |
 | --- | --- | --- |
 | Citizen | `citizen@demo.nivaran.in` | `Citizen@2026` |
+| Officer | invite from the Users page | — |
 | Admin | `admin@demo.nivaran.in` | `Admin@2026` |
 
-See [DEMO_ACCOUNTS.md](DEMO_ACCOUNTS.md) for more details and how to invite officers from the Users page.
+Officers are department-scoped — they only see complaints assigned to their department. Invite them from the Admin console → Users page and assign a department. See [DEMO_ACCOUNTS.md](DEMO_ACCOUNTS.md) for more details.
 
 ## Features
 
@@ -81,6 +82,12 @@ See [DEMO_ACCOUNTS.md](DEMO_ACCOUNTS.md) for more details and how to invite offi
 - User & role management (invite officers, assign departments, toggle roles) — admin only
 - Audit log with CSV export — every mutation is recorded
 - Feedback analytics (avg rating, distribution, by category, recent comments)
+
+### Officer console
+- Department-scoped view — officers only see complaints routed to their department
+- Update complaint status, priority, and add resolution notes
+- Escalate complaints up to admin when needed
+- Receive email / SMS notifications on new assignments
 
 ### Cross-cutting
 - Hard auth: bfcache-aware logout, role-gated routes, sealed-room navigation (signed-in users can't see login pages, signed-out can't reach protected ones)
