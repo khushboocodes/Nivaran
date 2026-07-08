@@ -12,7 +12,7 @@ The whole stack runs locally with two commands. No paid services required.
 | Backend | Hono 4 on Node 20, TypeScript, Argon2id, JOSE JWT cookies, Prisma 5 |
 | Database | Postgres 16 |
 | Object storage | MinIO (S3-compatible) — for complaint attachments |
-| AI | Gemini 2.5 Flash (free, default) or Heuristic classifier (offline fallback) |
+| AI | Gemini 2.5 Flash (default) with heuristic offline fallback |
 | Email | Nodemailer SMTP — Mailtrap / Resend / Brevo / Gmail App Password all work, dev mode logs to stdout |
 | SMS | Twilio / MSG91 ready, dev mode logs to stdout |
 | Tests | Vitest + Testing Library |
@@ -33,7 +33,7 @@ npm --prefix shared install
 npm --prefix server install
 
 copy server\.env.example server\.env
-REM Edit server\.env and add your GEMINI_API_KEY (free from aistudio.google.com)
+REM Edit server\.env and add your GEMINI_API_KEY (from Google AI Studio)
 npm --prefix server run prisma:generate
 npm --prefix server run prisma:migrate
 npm --prefix server run db:seed
@@ -64,18 +64,18 @@ Officers are department-scoped — they only see complaints assigned to their de
 ### Citizen portal
 - Sign up, login, password reset, profile, password change
 - File a complaint with title, description, category, language (11 languages: EN, HI, TA, TE, KN, ML, MR, BN, GU, PA, UR)
-- AI-assisted classification: category, department, priority, sentiment, summary (powered by Gemini 2.5 Flash)
+- AI-assisted classification: category, department, priority, sentiment, summary, powered by Gemini 2.5 Flash
 - Photo / video / audio attachments via direct browser → MinIO uploads (presigned URLs)
 - Live audio recording via MediaRecorder API
 - Geolocation pin drop ("Use my location")
 - Track any complaint by ID with a step-by-step status timeline
 - Real-time notifications with unread badge and "Mark all as read"
-- Streaming AI assistant chatbot (Gemini-powered, context-aware with full complaint history)
+- Streaming AI assistant chatbot powered by Gemini, with complaint-aware responses
 - Star rating + comment feedback on resolved complaints
 
 ### Admin console
 - Department-scoped dashboard, complaints list, analytics, escalation, heatmap, reports
-- AI-generated analytics reports (Gemini analyzes complaint patterns and provides actionable insights)
+- AI-generated analytics reports using Gemini to summarize complaint patterns and surface actionable insights
 - Complaint detail modal with status / priority / assignee / escalate / resolve actions
 - Leaflet heatmap with category-coloured markers
 - SLA scheduler that auto-escalates overdue complaints every 5 minutes
@@ -91,6 +91,11 @@ Officers are department-scoped — they only see complaints assigned to their de
 - Escalate complaints up to admin when needed
 - Receive email / SMS notifications on new assignments
 
+### Gemini-powered features
+- **AI Complaint Triage** — every submitted complaint is analyzed by Gemini to generate priority, severity, and a summary for the assigned officer dashboard.
+- **Gemini Chat Assistant** — answers how to use the platform, explains how to file complaints, and rewrites informal problem descriptions into properly worded formal complaints.
+- **Translation layer** — the chatbot can respond in any language on request, and complaint reports are auto-translated for officers who do not share the citizen's filing language.
+
 ### Cross-cutting
 - Hard auth: bfcache-aware logout, role-gated routes, sealed-room navigation (signed-in users can't see login pages, signed-out can't reach protected ones)
 - Mobile-friendly: hamburger drawer below 1024px, responsive grids, no horizontal scroll on phones
@@ -99,23 +104,20 @@ Officers are department-scoped — they only see complaints assigned to their de
 - Dockerfile + GitHub Actions CI
 
 ## Project layout
-
-```
 .
-├── server/                 # Hono API + Prisma
-│   ├── src/                # Routes, services, auth
-│   ├── prisma/             # Schema, migrations, seed, backfill
-│   └── Dockerfile
-├── shared/                 # zod schemas + TS types reused by client and server
-│   └── src/
-├── src/                    # Web client (Vite + React)
-│   ├── app/                # Pages, layouts, contexts, components
-│   ├── lib/                # Telemetry, API client, i18n, helpers
-│   └── styles/
-├── docker-compose.yml      # Postgres + MinIO
+├── server/ # Hono API + Prisma
+│ ├── src/ # Routes, services, auth
+│ ├── prisma/ # Schema, migrations, seed, backfill
+│ └── Dockerfile
+├── shared/ # zod schemas + TS types reused by client and server
+│ └── src/
+├── src/ # Web client (Vite + React)
+│ ├── app/ # Pages, layouts, contexts, components
+│ ├── lib/ # Telemetry, API client, i18n, helpers
+│ └── styles/
+├── docker-compose.yml # Postgres + MinIO
 ├── .github/workflows/ci.yml
-└── docs/operations.md      # Env vars, migrations, backups, ops checklist
-```
+└── docs/operations.md # Env vars, migrations, backups, ops checklist
 
 ## Configuration
 
@@ -123,8 +125,8 @@ All server config lives in `server/.env`. Defaults match the local Docker stack 
 
 | Var | Default | Effect |
 | --- | --- | --- |
-| `AI_PROVIDER` | `gemini` | Set to `gemini`, `openai`, or `heuristic`. Falls back transparently on failure. |
-| `GEMINI_API_KEY` | _unset_ | Required when `AI_PROVIDER=gemini`. Free from [aistudio.google.com](https://aistudio.google.com). |
+| `AI_PROVIDER` | `gemini` | Use Gemini by default, with fallback to heuristic mode if needed. |
+| `GEMINI_API_KEY` | _unset_ | Required when `AI_PROVIDER=gemini`. Get it from [aistudio.google.com](https://aistudio.google.com). |
 | `OPENAI_API_KEY` | _unset_ | Required when `AI_PROVIDER=openai`. |
 | `SMTP_HOST` | _unset_ | When unset, every email is logged to stdout. |
 | `SMS_PROVIDER` | `console` | Logs to stdout. Switch to `twilio` / `msg91` / `sns` once you wire up keys. |
@@ -143,17 +145,14 @@ npm test             REM Vitest suite (23 tests)
 ```
 
 Server-only scripts (run with `npm --prefix server run <name>`):
-
-```
-prisma:generate    REM Regenerate Prisma client after schema changes
-prisma:migrate     REM Apply pending migrations
-prisma:studio      REM Visual DB browser at localhost:5555
-db:seed            REM Insert demo users + departments
-db:reset           REM Drop and re-create the database (destructive)
-backfill:ai        REM Re-run AI classifier on every existing complaint
-build              REM Compile TS to dist/
-start              REM Run compiled server
-```
+prisma:generate REM Regenerate Prisma client after schema changes
+prisma:migrate REM Apply pending migrations
+prisma:studio REM Visual DB browser at localhost:5555
+db:seed REM Insert demo users + departments
+db:reset REM Drop and re-create the database (destructive)
+backfill:ai REM Re-run AI classifier on every existing complaint
+build REM Compile TS to dist/
+start REM Run compiled server
 
 ## Cost reality
 
@@ -163,7 +162,7 @@ Everything in this README runs on the free path. No credit card required.
 | --- | --- | --- | --- |
 | Database | Postgres in Docker | ✅ | Supabase / Neon / RDS |
 | Object storage | MinIO in Docker | ✅ | Cloudflare R2 (10 GB free) → AWS S3 |
-| AI classifier | Gemini 2.5 Flash (free, 1000 req/day) | ✅ | OpenAI gpt-4o-mini (~95%) at $0.000015/call |
+| AI classifier | Gemini 2.5 Flash (default) | ✅ | OpenAI gpt-4o-mini (~95%) at $0.000015/call |
 | Email | Console logger | ✅ | Resend (3k/mo free) / Mailtrap / Gmail App Password |
 | SMS | Console logger | ✅ | Twilio / MSG91 (paid per message in India) |
 | Maps | OpenStreetMap tiles | ✅ | Mapbox / Google (paid) |
