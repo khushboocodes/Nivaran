@@ -56,11 +56,16 @@ ENV PORT=3001
 # (so `prisma migrate deploy` works), and only the production server deps.
 COPY --from=build /repo/server/dist ./dist
 COPY --from=build /repo/server/node_modules ./node_modules
+COPY --from=build /repo/shared/src ../shared/src
+COPY --from=build /repo/server/src ./src
 COPY --from=build /repo/server/prisma ./prisma
 COPY --from=build /repo/server/package.json ./package.json
+COPY --from=build /repo/server/tsconfig.json ./tsconfig.json
 
 EXPOSE 3001
 
-# `prisma migrate deploy` runs every boot — idempotent and safe; it's a
-# no-op when the schema is current.
-CMD sh -c "npx prisma migrate deploy && node --enable-source-maps --experimental-specifier-resolution=node dist/server/src/index.js"
+# Use tsx to run TypeScript source directly — avoids ESM resolution issues
+# with compiled JS. tsx is already in devDependencies.
+RUN npm install --no-save tsx
+
+CMD sh -c "npx prisma migrate deploy && npx tsx src/index.ts"
