@@ -56,11 +56,14 @@ ENV PORT=3001
 # (so `prisma migrate deploy` works), and only the production server deps.
 COPY --from=build /repo/server/dist ./dist
 COPY --from=build /repo/server/node_modules ./node_modules
-COPY --from=build /repo/shared/src ../shared/src
 COPY --from=build /repo/server/src ./src
 COPY --from=build /repo/server/prisma ./prisma
 COPY --from=build /repo/server/package.json ./package.json
 COPY --from=build /repo/server/tsconfig.json ./tsconfig.json
+# Keep the relative-path copy for the tsconfig alias, AND install the shared
+# package into node_modules so tsx resolves `@nivaran/shared` either way.
+COPY --from=build /repo/shared ../shared
+COPY --from=build /repo/shared ./node_modules/@nivaran/shared
 
 EXPOSE 3001
 
