@@ -63,4 +63,4 @@ EXPOSE 3001
 
 # `prisma migrate deploy` runs every boot — idempotent and safe; it's a
 # no-op when the schema is current.
-CMD sh -c "npx prisma migrate deploy && node --enable-source-maps dist/server/src/index.js"
+CMD sh -c "npx prisma migrate deploy && node --enable-source-maps --experimental-specifier-resolution=node dist/server/src/index.js"
