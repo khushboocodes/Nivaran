@@ -52,11 +52,20 @@ All server vars live in `server/.env`. `server/.env.example` is the template.
 ### AI provider
 | Var | Default | Notes |
 | --- | --- | --- |
-| `AI_PROVIDER` | `heuristic` | `openai` to call the OpenAI Chat Completions API. Heuristic mode runs fully offline. |
+| `AI_PROVIDER` | `gemini` | `gemini` (default when key present), `openai`, or `heuristic` (fully offline). |
+| `GEMINI_API_KEY` | _unset_ | Free from [aistudio.google.com](https://aistudio.google.com). No credit card required. |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | 15 RPM, 1000 requests/day on the free tier. |
 | `OPENAI_API_KEY` | _unset_ | Required when `AI_PROVIDER=openai`. |
 | `OPENAI_MODEL` | `gpt-4o-mini` | Override to a model your key has access to. |
 
-The classifier caches results by SHA-256 of `(description, language)` for 24 hours. If OpenAI fails the response transparently degrades to the heuristic.
+The classifier caches results by SHA-256 of `(description, language)` for 24 hours. If Gemini/OpenAI fails the response transparently degrades to the heuristic.
+
+Provider priority: Gemini (if key set) → OpenAI (if key set) → Heuristic.
+
+**Gemini powers:**
+- Complaint classification (category, department, priority, sentiment, summary)
+- Streaming AI chat assistant (context-aware, knows all citizen complaints)
+- AI-generated analytics reports (admin console)
 
 ### Object storage (attachments)
 | Var | Default | Notes |
@@ -149,7 +158,7 @@ When the API process restarts the scheduler resumes within ~5 minutes. There's n
 | `GET /api/notifications` | Per-user feed |
 | `POST /api/notifications/:id/read`, `/read-all` | Mark read |
 | `GET/PATCH /api/users/me`, `POST /me/password` | Citizen profile |
-| `GET/POST /api/users`, `PATCH /api/users/:id` | Admin user management |
+| `GET/POST /api/users`, `PATCH/DELETE /api/users/:id` | Admin user management |
 | `GET/POST /api/feedback`, `GET /api/feedback/stats` | Citizen feedback + admin aggregates |
 | `GET /api/audit` | Audit ledger (admin/officer) |
 | `GET/PUT /api/settings` | Admin settings persistence |
@@ -162,7 +171,7 @@ When the API process restarts the scheduler resumes within ~5 minutes. There's n
 - [ ] Move object storage to Cloudflare R2 (free 10 GB) or AWS S3, set `S3_PUBLIC_URL` to the CDN.
 - [ ] Pick an SMTP provider, set `SMTP_*`.
 - [ ] Decide on SMS — Twilio/MSG91/SNS — only when you're ready to pay.
-- [ ] Set `AI_PROVIDER=openai` if you want OpenAI; otherwise the heuristic ships fine.
+- [ ] Set `AI_PROVIDER=gemini` and add `GEMINI_API_KEY` (free from aistudio.google.com). Falls back to heuristic if unset.
 - [ ] Run migrations, then seed only in dev.
 - [ ] Put HTTPS in front of the API (cookies are SameSite=Lax + Secure in production).
 - [ ] Run a single replica of the API (or gate the SLA scheduler) so escalation isn't double-fired.
