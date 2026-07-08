@@ -254,9 +254,10 @@ function negationWindows(text: string): { start: number; end: number }[] {
   }
   const windows: { start: number; end: number }[] = [];
   for (let i = 0; i < tokens.length; i++) {
-    if (NEGATION_CUES.includes(tokens[i].word)) {
-      const start = tokens[i].index;
-      const last = tokens[Math.min(tokens.length - 1, i + 3)];
+    const token = tokens[i]!;
+    if (NEGATION_CUES.includes(token.word)) {
+      const start = token.index;
+      const last = tokens[Math.min(tokens.length - 1, i + 3)]!;
       const end = last.index + last.word.length;
       windows.push({ start, end });
     }
