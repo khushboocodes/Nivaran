@@ -65,8 +65,8 @@ COPY --from=build /repo/server/tsconfig.json ./tsconfig.json
 EXPOSE 3001
 
 # tsx runs the TypeScript source directly — handles path aliases and ESM
-# resolution without the compiled-JS extension problems. Pin the version so
-# it isn't re-downloaded at boot.
-RUN npm install tsx@4.19.2
+# resolution without the compiled-JS extension problems. Install globally so
+# it's reliably on PATH and not re-downloaded at boot.
+RUN npm install -g tsx@4.19.2
 
-CMD sh -c "npx prisma migrate deploy && ./node_modules/.bin/tsx src/index.ts"
+CMD sh -c "npx prisma migrate deploy && tsx src/index.ts"
