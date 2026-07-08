@@ -1,0 +1,90 @@
+# --- Dependencies -----------------------------------------------------------
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+
+# --- Build outputs ----------------------------------------------------------
+dist/
+build/
+out/
+.vite/
+*.tsbuildinfo
+
+# --- Logs -------------------------------------------------------------------
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# --- Environment & secrets --------------------------------------------------
+# Real values stay on the developer's machine. Commit only the *.example
+# templates. Anything matching .env* in any directory is ignored.
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# --- Cookies, jars, and other CLI auth artifacts ----------------------------
+cookies.txt
+*-cookies.txt
+*.cookies.txt
+
+# --- Prisma -----------------------------------------------------------------
+# Generated client lives inside node_modules/.prisma; .gitignore there is fine.
+# We do commit the schema and migrations.
+prisma/.env
+
+# --- Docker volumes / runtime data ------------------------------------------
+# Compose volumes live under Docker's data dir, not the repo, but if anyone
+# bind-mounts pgdata or minio data into the repo it stays out.
+pgdata/
+minio-data/
+
+# --- Editor / IDE -----------------------------------------------------------
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+
+# --- Internal planning / spec docs (not for the public repo) ---------------
+.kiro/
+guidelines/
+PROJECT_NOTES.md
+ATTRIBUTIONS.md
+DEPLOYMENT.md
+
+# --- OS junk ----------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Test / coverage --------------------------------------------------------
+coverage/
+.nyc_output/
+*.lcov
+playwright-report/
+test-results/
+.cache/
+
+# --- Generated reports / one-off downloads ----------------------------------
+*.csv
+*.pdf
+!docs/**/*.pdf
+report.csv
+report.pdf
+
+# --- Project-local scratch files (curl bodies, smoke tests) -----------------
+*-login.json
+*-test.json
+admin-login.json
+citizen-login.json
+admin-cookies.txt
+citizen-cookies.txt
+
+# --- Misc -------------------------------------------------------------------
+.tmp/
+tmp/

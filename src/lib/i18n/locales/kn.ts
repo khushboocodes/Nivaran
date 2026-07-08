@@ -1,0 +1,66 @@
+/** Kannada — partial; missing keys fall back to English. */
+const kn = {
+  common: {
+    signOut: 'ಸೈನ್ ಔಟ್',
+    language: 'ಭಾಷೆ',
+    markAllRead: 'ಎಲ್ಲವನ್ನೂ ಓದಿದಂತೆ ಗುರುತಿಸಿ',
+    save: 'ಉಳಿಸಿ',
+    submit: 'ಸಲ್ಲಿಸು',
+    close: 'ಮುಚ್ಚಿ',
+    refresh: 'ರಿಫ್ರೆಶ್',
+    viewAll: 'ಎಲ್ಲವನ್ನೂ ನೋಡಿ',
+    portalCitizen: 'ನಾಗರಿಕ ಪೋರ್ಟಲ್',
+  },
+  citizen: {
+    portalEyebrow: 'ನಾಗರಿಕ ಪೋರ್ಟಲ್',
+    nav: {
+      dashboard: 'ಡ್ಯಾಶ್‌ಬೋರ್ಡ್',
+      submit: 'ದೂರು ಸಲ್ಲಿಸಿ',
+      track: 'ದೂರು ಟ್ರ್ಯಾಕ್',
+      complaints: 'ನನ್ನ ದೂರುಗಳು',
+      notifications: 'ಅಧಿಸೂಚನೆಗಳು',
+      assistant: 'AI ಸಹಾಯಕ',
+      profile: 'ಪ್ರೊಫೈಲ್',
+    },
+    dashboard: {
+      welcome: 'ಸ್ವಾಗತ',
+      headerTrack: 'ಟ್ರ್ಯಾಕ್',
+      headerNew: 'ಹೊಸ ದೂರು',
+      stats: {
+        totalFiled: 'ಒಟ್ಟು ಸಲ್ಲಿಸಲಾಗಿದೆ',
+        pending: 'ಬಾಕಿ',
+        resolved: 'ಪರಿಹರಿಸಲಾಗಿದೆ',
+        escalated: 'ಎಸ್ಕಲೇಟ್',
+      },
+      quickActions: 'ತ್ವರಿತ ಕ್ರಿಯೆಗಳು',
+      action: {
+        fileNew: 'ಹೊಸ ದೂರು ಸಲ್ಲಿಸಿ',
+        track: 'ದೂರು ಟ್ರ್ಯಾಕ್',
+        assistant: 'AI ಸಹಾಯಕ',
+        notifications: 'ಅಧಿಸೂಚನೆಗಳು',
+      },
+      recent: { title: 'ಇತ್ತೀಚಿನ ಚಟುವಟಿಕೆ', empty: 'ಇನ್ನೂ ದೂರುಗಳಿಲ್ಲ' },
+      insights: { title: 'AI ಒಳನೋಟಗಳು', topCategory: 'ಪ್ರಮುಖ ವರ್ಗ', confidence: 'AI ವಿಶ್ವಾಸ', resolutionTitle: 'ಪರಿಹಾರ ದರ' },
+    },
+    submit: {
+      title: 'ದೂರು ಸಲ್ಲಿಸಿ',
+      fields: { title: 'ದೂರಿನ ಶೀರ್ಷಿಕೆ', description: 'ವಿವರಣೆ', category: 'ವರ್ಗ', location: 'ಸ್ಥಳ' },
+      attachments: 'ಲಗತ್ತುಗಳು',
+      attach: { photo: 'ಫೋಟೋ', video: 'ವೀಡಿಯೊ', audio: 'ಆಡಿಯೊ', record: 'ರೆಕಾರ್ಡ್', stop: 'ನಿಲ್ಲಿಸಿ' },
+      cta: { submit: 'ದೂರು ಸಲ್ಲಿಸಿ' },
+      ai: { title: 'AI ವಿಶ್ಲೇಷಣೆ', analyze: 'AI ಯೊಂದಿಗೆ ವಿಶ್ಲೇಷಿಸಿ' },
+    },
+    myComplaints: { title: 'ನನ್ನ ದೂರುಗಳು' },
+    track: { title: 'ದೂರು ಟ್ರ್ಯಾಕ್', cta: 'ಟ್ರ್ಯಾಕ್' },
+    notifications: { title: 'ಅಧಿಸೂಚನೆಗಳು' },
+    profile: { title: 'ನನ್ನ ಪ್ರೊಫೈಲ್' },
+    assistant: { title: 'AI ಸಹಾಯಕ', send: 'ಕಳುಹಿಸಿ' },
+  },
+  auth: {
+    citizenLogin: { title: 'ಮತ್ತೆ ಸ್ವಾಗತ', cta: 'ಸೈನ್ ಇನ್', email: 'ಇಮೇಲ್', password: 'ಪಾಸ್‌ವರ್ಡ್' },
+    signup: { title: 'ಖಾತೆ ರಚಿಸಿ', cta: 'ಖಾತೆ ರಚಿಸಿ' },
+  },
+  status: { submitted: 'ಸಲ್ಲಿಸಲಾಗಿದೆ', underReview: 'ಪರಿಶೀಲನೆಯಲ್ಲಿ', assigned: 'ನಿಯೋಜಿಸಲಾಗಿದೆ', inProgress: 'ಪ್ರಗತಿಯಲ್ಲಿ', resolved: 'ಪರಿಹರಿಸಲಾಗಿದೆ' },
+  priority: { low: 'ಕಡಿಮೆ', medium: 'ಮಧ್ಯಮ', high: 'ಹೆಚ್ಚಿನ', critical: 'ಕ್ರಿಟಿಕಲ್' },
+};
+export default kn;

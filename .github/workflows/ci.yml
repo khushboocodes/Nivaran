@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+# Cancel in-flight runs when a PR is updated.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16.4-alpine
+        env:
+          POSTGRES_USER: nivaran
+          POSTGRES_PASSWORD: nivaran
+          POSTGRES_DB: nivaran
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nivaran -d nivaran"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://nivaran:nivaran@localhost:5432/nivaran?schema=public
+      SESSION_SECRET: ci-only-secret-not-used-in-production-32b
+      SESSION_COOKIE_NAME: nivaran_session
+      SESSION_TTL_HOURS: 168
+      PUBLIC_APP_URL: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            shared/package-lock.json
+            server/package-lock.json
+
+      # Workspace installs — keep them isolated so a flaky postinstall in
+      # one package can't corrupt another.
+      - name: Install web client deps
+        run: npm install --no-audit --no-fund
+
+      - name: Install shared deps
+        run: npm --prefix shared install --no-audit --no-fund
+
+      - name: Install server deps
+        run: npm --prefix server install --no-audit --no-fund
+
+      - name: Generate Prisma client
+        run: npm --prefix server run prisma:generate
+
+      - name: Apply migrations
+        run: npx --prefix server prisma migrate deploy
+        working-directory: server
+
+      - name: Type-check & build server
+        run: npm --prefix server run build
+
+      - name: Build web client
+        run: npm run build
+
+      - name: Run unit tests (Vitest)
+        run: npm test --if-present

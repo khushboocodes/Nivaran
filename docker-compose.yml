@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    container_name: nivaran-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nivaran
+      POSTGRES_PASSWORD: nivaran
+      POSTGRES_DB: nivaran
+    ports:
+      - "5432:5432"
+    volumes:
+      - nivaran_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nivaran -d nivaran"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # S3-compatible object storage for complaint attachments.
+  # Browser uploads through presigned PUT URLs, so the MinIO API port is
+  # exposed at localhost:9000. The web console (browse buckets, see files)
+  # lives at localhost:9001 with the credentials below.
+  minio:
+    image: minio/minio:RELEASE.2024-12-13T22-19-12Z
+    container_name: nivaran-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: nivaran
+      MINIO_ROOT_PASSWORD: nivaran-dev-only
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - nivaran_minio:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  nivaran_pgdata:
+  nivaran_minio:

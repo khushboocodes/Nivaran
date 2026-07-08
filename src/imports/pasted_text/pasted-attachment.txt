@@ -1,0 +1,338 @@
+Transform the existing NIVARAN Admin Console into a fully dynamic, real-time behaving governance dashboard connected with the Citizen Portal.
+
+The current UI design is already completed. Preserve the exact visual design system, layout, sidebar, cards, tables, charts, spacing, typography, modal structure, buttons, icons, and overall appearance. The objective is to make the entire interface interactive and state-driven so every section updates dynamically across the application.
+
+The platform should simulate a real governance complaint management system where complaints submitted from the Citizen Portal immediately appear across the Admin Console and update all analytics, metrics, charts, reports, and escalation sections in real time.
+
+====================================================
+OVERALL EXPERIENCE
+====================================================
+
+The application should feel like a modern AI-powered smart governance platform with live data synchronization between the Citizen Portal and Admin Console.
+
+Every action should instantly reflect throughout the UI:
+- complaint submission
+- editing complaint details
+- assigning officers
+- changing status
+- escalating complaints
+- resolving complaints
+- generating AI reports
+- updating analytics
+
+All pages must stay synchronized automatically.
+
+====================================================
+GLOBAL DATA FLOW
+====================================================
+
+Create a centralized application state that stores:
+- complaints
+- categories
+- priorities
+- analytics
+- reports
+- escalation data
+- AI summaries
+- dashboard statistics
+
+Persist data locally so refreshing the page keeps all complaints and updates intact.
+
+====================================================
+COMPLAINT SUBMISSION FLOW
+====================================================
+
+When a citizen submits a complaint from the Citizen Portal:
+- it should instantly appear in the Admin Console
+- dashboard counters should increase automatically
+- charts should update automatically
+- recent complaints table should update instantly
+- escalation and priority sections should refresh dynamically
+
+Each complaint should include:
+- unique ID
+- complaint title
+- detailed description
+- category
+- priority
+- department
+- citizen information
+- created date/time
+- status
+- AI-generated summary
+- urgency score
+- sentiment type
+- escalation state
+- optional location coordinates
+
+====================================================
+DASHBOARD PAGE
+====================================================
+
+Dashboard cards should dynamically calculate and update:
+- Total Complaints
+- Pending Action
+- Resolved
+- Escalated
+- AI Routing Accuracy
+- Critical Priority
+- Resolution Rate
+
+All visualizations should update automatically:
+- complaint trend line chart
+- category distribution
+- priority split donut chart
+- complaint volume graph
+- recent complaints table
+
+Charts must animate smoothly when data changes.
+
+====================================================
+COMPLAINT MANAGEMENT PAGE
+====================================================
+
+The complaints table should:
+- populate dynamically
+- support real-time searching
+- support filtering by status and priority
+- update instantly when changes occur
+
+Each complaint row should contain:
+- complaint title
+- category
+- status badge
+- priority badge
+- citizen information
+- filing date
+- actions
+
+Clicking “View” should open a detailed complaint modal.
+
+====================================================
+COMPLAINT DETAIL MODAL
+====================================================
+
+The detail modal should display:
+- complaint description
+- category
+- status
+- priority
+- department
+- assigned officer
+- AI analysis section
+- generated governance insights
+
+Buttons:
+- Edit
+- Escalate
+- Resolve
+
+====================================================
+AI ANALYSIS SECTION
+====================================================
+
+The AI analysis block should dynamically generate:
+- issue summary
+- urgency explanation
+- risk assessment
+- suggested next steps
+- department recommendation
+
+The Generate button should:
+- show loading animation
+- simulate AI processing
+- generate contextual governance insights
+- populate the analysis area dynamically
+
+====================================================
+EDIT COMPLAINT FLOW
+====================================================
+
+Clicking Edit opens an editable modal.
+
+Editable fields:
+- status
+- priority
+- assigned officer
+- resolution notes
+
+Statuses:
+- submitted
+- under review
+- assigned
+- in progress
+- resolved
+- escalated
+
+Priorities:
+- low
+- medium
+- high
+- critical
+
+Saving changes should instantly update:
+- dashboard metrics
+- complaint table
+- escalation center
+- analytics page
+- reports page
+- charts
+- badges
+- recent activity
+
+====================================================
+ESCALATION CENTER
+====================================================
+
+Critical and escalated complaints should automatically appear in the Escalation Center.
+
+The escalation section should dynamically organize:
+- escalated complaints
+- critical priority complaints
+- overdue complaints
+
+Escalated complaints should display:
+- complaint title
+- category
+- citizen info
+- elapsed time
+- status badges
+- escalation actions
+
+Buttons:
+- Escalate
+- De-escalate
+- Resolve
+
+Counts and cards should update automatically.
+
+====================================================
+AI ANALYTICS PAGE
+====================================================
+
+Create a dynamic analytics dashboard with:
+- category analysis
+- sentiment analysis
+- urgency mapping
+- priority breakdown
+- complaint pattern visualization
+
+Charts should derive data directly from complaint activity.
+
+The “Generate AI Report” button should:
+- display loading state
+- generate detailed governance insights
+- create executive summaries
+- produce recommendations
+- identify trends and risks
+
+====================================================
+AI GOVERNANCE REPORT
+====================================================
+
+Generated reports should contain:
+- executive summary
+- complaint analysis
+- governance findings
+- risk evaluation
+- service impact
+- recommendations
+- operational insights
+- escalation observations
+- citizen sentiment analysis
+
+Reports should dynamically adapt based on complaint data.
+
+====================================================
+HEATMAP PAGE
+====================================================
+
+The heatmap page should visualize complaint distribution geographically.
+
+If complaint coordinates exist:
+- dynamically place map pins
+- group complaints by category
+- calculate visible pins
+- update coverage metrics
+
+If no location data exists:
+- display clean empty-state visualization
+
+Top complaint categories should dynamically update.
+
+====================================================
+REPORTS PAGE
+====================================================
+
+Create a dynamic governance reporting system.
+
+Features:
+- report type selector
+- date range selector
+- AI-generated report generation
+- dynamic charts
+- summary cards
+- downloadable report output
+
+Metrics should dynamically calculate:
+- total complaints
+- resolved complaints
+- resolution rate
+- category trends
+
+====================================================
+DOWNLOADABLE REPORT
+====================================================
+
+The Download button should generate a professional governance report document including:
+- report title
+- analytics summary
+- charts
+- complaint insights
+- recommendations
+- governance observations
+- resolution statistics
+
+====================================================
+REALTIME EXPERIENCE
+====================================================
+
+All pages should stay synchronized automatically.
+
+Examples:
+- new complaint instantly updates dashboard
+- resolving complaint updates resolution rate
+- escalating complaint updates escalation center
+- AI report generation updates analytics
+- editing complaint status updates all related components
+
+====================================================
+INTERACTIONS & ANIMATIONS
+====================================================
+
+Add polished interactions:
+- smooth modal animations
+- loading spinners
+- realtime chart transitions
+- hover effects
+- toast notifications
+- animated counters
+- smooth state updates
+
+====================================================
+NOTIFICATIONS
+====================================================
+
+Display toast notifications for actions such as:
+- complaint submitted
+- complaint escalated
+- complaint resolved
+- report generated
+- status updated
+- AI analysis completed
+
+====================================================
+FINAL RESULT
+====================================================
+
+The final application should behave like a fully functional AI-powered smart governance platform where the Citizen Portal and Admin Console feel completely interconnected in real time with intelligent analytics, live complaint tracking, dynamic reports, escalation management, and AI-driven governance insights throughout the entire interface.

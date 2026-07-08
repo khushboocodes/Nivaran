@@ -1,0 +1,204 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  citizen
+  officer
+  admin
+}
+
+enum Status {
+  Submitted
+  UnderReview     @map("Under Review")
+  Assigned
+  InProgress      @map("In Progress")
+  Resolved
+}
+
+enum Priority {
+  Low
+  Medium
+  High
+  Critical
+}
+
+enum Sentiment {
+  Positive
+  Neutral
+  Negative
+  HighlyNegative  @map("Highly Negative")
+}
+
+enum NotificationType {
+  submitted
+  status_updated
+  assigned
+  resolved
+  escalated
+}
+
+enum AttachmentKind {
+  photo
+  video
+  audio
+}
+
+model User {
+  id                 String        @id @default(cuid())
+  email              String        @unique
+  phone              String?
+  name               String
+  city               String?
+  role               Role          @default(citizen)
+  passwordHash       String        @map("password_hash")
+  language           String        @default("en")
+  twoFactorEnabled   Boolean       @default(false) @map("two_factor_enabled")
+  twoFactorSecret    String?       @map("two_factor_secret")
+  departmentId       String?       @map("department_id")
+  department         Department?   @relation(fields: [departmentId], references: [id])
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+
+  complaints         Complaint[]   @relation("CitizenComplaints")
+  assignedComplaints Complaint[]   @relation("AssignedComplaints")
+  notifications      Notification[]
+  feedback           Feedback[]
+  auditLogs          AuditLog[]
+  passwordResetTokens PasswordResetToken[]
+
+  @@index([role])
+  @@map("users")
+}
+
+model Department {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  users       User[]
+  complaints  Complaint[]
+
+  @@map("departments")
+}
+
+model Complaint {
+  id                    String        @id @default(cuid())
+  citizenId             String        @map("citizen_id")
+  citizen               User          @relation("CitizenComplaints", fields: [citizenId], references: [id])
+  title                 String
+  description           String
+  category              String
+  departmentId          String        @map("department_id")
+  department            Department    @relation(fields: [departmentId], references: [id])
+  assigneeId            String?       @map("assignee_id")
+  assignee              User?         @relation("AssignedComplaints", fields: [assigneeId], references: [id])
+  priority              Priority      @default(Medium)
+  status                Status        @default(Submitted)
+  sentiment             Sentiment     @default(Neutral)
+  aiConfidence          Float         @default(0) @map("ai_confidence")
+  aiSummary             String        @default("") @map("ai_summary")
+  language              String        @default("en")
+  location              String?
+  lat                   Float?
+  lng                   Float?
+  estimatedResolutionAt DateTime?     @map("estimated_resolution_at")
+  submittedAt           DateTime      @default(now()) @map("submitted_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+  resolvedAt            DateTime?     @map("resolved_at")
+
+  attachments           Attachment[]
+  notifications         Notification[]
+  feedback              Feedback?
+
+  @@index([status])
+  @@index([priority])
+  @@index([departmentId, status])
+  @@index([citizenId])
+  @@map("complaints")
+}
+
+model Attachment {
+  id          String          @id @default(cuid())
+  complaintId String          @map("complaint_id")
+  complaint   Complaint       @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  kind        AttachmentKind
+  url         String
+  sizeBytes   Int             @map("size_bytes")
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  @@index([complaintId])
+  @@map("attachments")
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String           @map("user_id")
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        NotificationType
+  message     String
+  complaintId String           @map("complaint_id")
+  complaint   Complaint        @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  read        Boolean          @default(false)
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  @@index([userId, read])
+  @@index([complaintId])
+  @@map("notifications")
+}
+
+model Feedback {
+  id          String     @id @default(cuid())
+  complaintId String     @unique @map("complaint_id")
+  complaint   Complaint  @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  citizenId   String     @map("citizen_id")
+  citizen     User       @relation(fields: [citizenId], references: [id])
+  rating      Int
+  comment     String?
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  @@index([rating])
+  @@map("feedback")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String   @map("actor_id")
+  actor     User     @relation(fields: [actorId], references: [id])
+  action    String
+  entity    String
+  entityId  String   @map("entity_id")
+  before    Json?
+  after     Json?
+  at        DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([at(sort: Desc)])
+  @@map("audit_log")
+}
+
+model Setting {
+  key   String @id
+  value Json
+
+  @@map("settings")
+}
+
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique @map("token_hash")
+  expiresAt  DateTime @map("expires_at")
+  usedAt     DateTime? @map("used_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
