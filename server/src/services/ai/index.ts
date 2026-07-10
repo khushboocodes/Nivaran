@@ -625,17 +625,19 @@ export async function* chatStream(messages: ChatMessage[]): AsyncIterable<string
   yield heuristicChatReply(messages);
 }
 
-/** Stream chat via Gemini API */
+/**
+ * Chat via Gemini. Uses the non-streaming generateContent endpoint for
+ * reliability (streaming SSE through some hosts buffers or hangs), then
+ * yields the full reply in one chunk. The browser accumulates chunks, so a
+ * single chunk renders identically to a stream.
+ */
 async function* geminiChatStream(messages: ChatMessage[], apiKey: string): AsyncIterable<string> {
   const model = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
 
-  // Convert messages to Gemini format. Gemini doesn't have a system role in
-  // contents — we prepend it as context in the first user message.
+  // Convert messages to Gemini format. System prompt goes via systemInstruction.
   const geminiContents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
-
-  // Build message history for Gemini (user/model turns)
   for (const msg of messages) {
-    if (msg.role === 'system') continue; // handled via systemInstruction
+    if (msg.role === 'system') continue;
     geminiContents.push({
       role: msg.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: msg.content }],
@@ -652,7 +654,7 @@ async function* geminiChatStream(messages: ChatMessage[], apiKey: string): Async
 
   let res: Response;
   try {
-    res = await fetch(geminiUrl(model, apiKey, true), {
+    res = await fetch(geminiUrl(model, apiKey, false), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -663,35 +665,18 @@ async function* geminiChatStream(messages: ChatMessage[], apiKey: string): Async
     return;
   }
 
-  if (!res.ok || !res.body) {
+  if (!res.ok) {
     console.warn('[ai] Gemini chat upstream returned', res.status);
     yield heuristicChatReply(messages);
     return;
   }
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    let idx;
-    while ((idx = buffer.indexOf('\n')) >= 0) {
-      const line = buffer.slice(0, idx).trimEnd();
-      buffer = buffer.slice(idx + 1);
-      if (!line.startsWith('data:')) continue;
-      const payload = line.slice(5).trim();
-      if (payload === '[DONE]' || !payload) continue;
-      try {
-        const json = JSON.parse(payload) as GeminiResponse;
-        const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) yield text;
-      } catch {
-        // Ignore malformed lines
-      }
-    }
+  const data = (await res.json()) as GeminiResponse;
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (text && text.trim()) {
+    yield text;
+  } else {
+    yield heuristicChatReply(messages);
   }
 }
 
