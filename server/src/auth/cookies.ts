@@ -16,7 +16,13 @@ export function setSessionCookie(c: Context, token: string): void {
 }
 
 export function clearSessionCookie(c: Context): void {
-  deleteCookie(c, SESSION_COOKIE_NAME, { path: '/' });
+  // Deletion must mirror the attributes used when the cookie was set,
+  // otherwise the browser treats it as a different cookie and won't clear it.
+  deleteCookie(c, SESSION_COOKIE_NAME, {
+    path: '/',
+    secure: IS_PROD,
+    sameSite: IS_PROD ? 'None' : 'Lax',
+  });
 }
 
 export function readSessionCookie(c: Context): string | undefined {
