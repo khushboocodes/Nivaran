@@ -20,17 +20,22 @@ const app = new Hono();
 
 app.use('*', logger());
 
-// In production, restrict CORS to the known frontend origin.
-// PUBLIC_APP_URL is set to the Vercel deployment URL in production.
-// In development it defaults to localhost, allowing the Vite dev server.
-const allowedOrigins = process.env.PUBLIC_APP_URL
-  ? [process.env.PUBLIC_APP_URL, 'http://localhost:5173']
+// CORS: allow the configured app URL, localhost for dev, and any Vercel
+// deployment subdomain (preview + production URLs both end in .vercel.app).
+const staticOrigins = process.env.PUBLIC_APP_URL
+  ? [process.env.PUBLIC_APP_URL, 'http://localhost:5173', 'http://localhost:3000']
   : ['http://localhost:5173', 'http://localhost:3000'];
 
 app.use(
   '*',
   cors({
-    origin: (origin) => (allowedOrigins.includes(origin ?? '') ? origin : allowedOrigins[0]),
+    origin: (origin) => {
+      if (!origin) return staticOrigins[0];
+      if (staticOrigins.includes(origin)) return origin;
+      // Accept any *.vercel.app origin so preview and production URLs work.
+      if (origin.endsWith('.vercel.app')) return origin;
+      return staticOrigins[0];
+    },
     credentials: true,
   }),
 );
