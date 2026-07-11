@@ -53,9 +53,11 @@ export default function AdminHeatmap() {
 
   const visible = useMemo(() => {
     if (filter === 'all') return withLocation;
-    return withLocation.filter(
-      (c) => c.category.toLowerCase().replace(/\s|&/g, '-') === filter,
-    );
+    // Collapse runs of spaces/ampersands into a single dash so
+    // "Roads & Infrastructure" → "roads-infrastructure" (matches the option).
+    const norm = (s: string) =>
+      s.toLowerCase().replace(/[\s&]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    return withLocation.filter((c) => norm(c.category) === filter);
   }, [withLocation, filter]);
 
   const total = scopedComplaints.length;
