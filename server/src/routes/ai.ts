@@ -62,11 +62,21 @@ ai.post('/chat', async (c) => {
     },
   });
 
+  // The manually-constructed Response bypasses Hono's CORS middleware, so we
+  // set the CORS headers here explicitly. Without these, the browser blocks
+  // the cross-origin streamed response (Vercel frontend → Render API).
+  const origin = c.req.header('Origin') ?? '';
+  const allowOrigin = origin.endsWith('.vercel.app') || origin.startsWith('http://localhost')
+    ? origin
+    : (process.env.PUBLIC_APP_URL ?? origin);
+
   return new Response(stream, {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
+      'Access-Control-Allow-Origin': allowOrigin,
+      'Access-Control-Allow-Credentials': 'true',
     },
   });
 });
