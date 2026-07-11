@@ -470,6 +470,7 @@ const GEMINI_CLASSIFY_PROMPT = [
   '  summary    — one short sentence (<= 24 words).',
   'Return ONLY the JSON object, no commentary, no code fences.',
   'The complaint may be in English, Hindi, Hinglish, Tamil, Telugu, Kannada, Malayalam, Marathi, Bengali, Gujarati, Punjabi, or Urdu.',
+  'IMPORTANT: Write the "summary" field in the SAME language as the complaint text. If the complaint is in Gujarati, the summary must be in Gujarati; if Hindi, then Hindi; and so on. The category, department, priority, and sentiment values must stay in English exactly as listed above.',
 ].join('\n');
 
 function geminiUrl(model: string, apiKey: string, stream = false): string {
