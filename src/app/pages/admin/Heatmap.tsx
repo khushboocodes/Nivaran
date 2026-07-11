@@ -1,11 +1,45 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import { Card } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { useComplaints } from '../../contexts/ComplaintContext';
 import { useScopedComplaints } from '../../contexts/DepartmentScopeContext';
-import { MapContainer, TileLayer, CircleMarker, Tooltip } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Tooltip, useMap } from 'react-leaflet';
+import type { LatLngBoundsExpression } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+
+// The set of categories that have their own dropdown option. Any complaint
+// whose category is NOT one of these is grouped under the "Other" filter.
+const KNOWN_FILTER_CATEGORIES = new Set([
+  'electricity',
+  'water-supply',
+  'roads',
+  'roads-infrastructure',
+  'sanitation',
+  'public-services',
+  'drainage',
+  'healthcare',
+  'public-health',
+  'traffic',
+]);
+
+const normalizeCategory = (s: string) =>
+  s.toLowerCase().replace(/[\s&]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+
+// Fits the Leaflet map to show every visible marker. Runs whenever the set
+// of points changes so "All Categories" frames all pins instead of one.
+function FitBounds({ points }: { points: [number, number][] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (points.length === 0) return;
+    if (points.length === 1) {
+      map.setView(points[0], 13);
+      return;
+    }
+    map.fitBounds(points as LatLngBoundsExpression, { padding: [50, 50] });
+  }, [points, map]);
+  return null;
+}
 
 // Map complaint categories to legend colours. Anything not in this map
 // falls through to the "Other" colour so new categories don't break.
@@ -53,11 +87,13 @@ export default function AdminHeatmap() {
 
   const visible = useMemo(() => {
     if (filter === 'all') return withLocation;
-    // Collapse runs of spaces/ampersands into a single dash so
-    // "Roads & Infrastructure" → "roads-infrastructure" (matches the option).
-    const norm = (s: string) =>
-      s.toLowerCase().replace(/[\s&]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-    return withLocation.filter((c) => norm(c.category) === filter);
+    return withLocation.filter((c) => {
+      const norm = normalizeCategory(c.category);
+      // "Other" catches any category that has no dedicated dropdown option
+      // (e.g. Street Lights, Waste Management).
+      if (filter === 'other') return !KNOWN_FILTER_CATEGORIES.has(norm);
+      return norm === filter;
+    });
   }, [withLocation, filter]);
 
   const total = scopedComplaints.length;
@@ -65,12 +101,12 @@ export default function AdminHeatmap() {
   const visibleCount = visible.length;
   const coverage = total > 0 ? Math.round((located / total) * 100) : 0;
 
-  // Center the map on the first plotted complaint when there's data; fall
-  // back to India bbox otherwise.
-  const center = visible[0]
-    ? ([visible[0].lat as number, visible[0].lng as number] as [number, number])
-    : DEFAULT_CENTER;
-  const zoom = visible.length > 0 ? 11 : DEFAULT_ZOOM;
+  // Coordinates of every visible pin — passed to FitBounds so the map frames
+  // all of them (rather than centering on just the first).
+  const points = useMemo(
+    () => visible.map((c) => [c.lat as number, c.lng as number] as [number, number]),
+    [visible],
+  );
 
   return (
     <AdminLayout>
@@ -128,9 +164,8 @@ export default function AdminHeatmap() {
         <Card className="p-6 border-[#E5EAF3] rounded-[20px] bg-white" style={{boxShadow: '0 4px 14px rgba(15, 23, 42, 0.05)'}}>
           <div className="h-[420px] rounded-[14px] border border-[#E5EAF3] overflow-hidden">
             <MapContainer
-              key={`${center[0]}-${center[1]}-${zoom}`}
-              center={center}
-              zoom={zoom}
+              center={DEFAULT_CENTER}
+              zoom={DEFAULT_ZOOM}
               scrollWheelZoom
               style={{ height: '100%', width: '100%' }}
             >
@@ -138,6 +173,7 @@ export default function AdminHeatmap() {
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
+              <FitBounds points={points} />
               {visible.map((c) => (
                 <CircleMarker
                   key={c.id}
