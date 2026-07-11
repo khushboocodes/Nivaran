@@ -224,7 +224,8 @@ export default function SubmitComplaint() {
         sentiment: AIAnalysis['sentiment'];
         confidence: number;
         summary: string;
-        provider: 'openai' | 'heuristic';
+        detectedLanguage?: string;
+        provider: 'gemini' | 'openai' | 'heuristic';
         degraded?: boolean;
       }>('/ai/classify', {
         description: formData.description,
@@ -247,14 +248,19 @@ export default function SubmitComplaint() {
 
       setAiAnalysis(analysis);
 
-      // Mirror the previous auto-populate behaviour so the Category select
-      // updates if the citizen left it blank.
-      if (!formData.category) {
-        setFormData((prev) => ({
-          ...prev,
-          category: analysis.category.toLowerCase().replace(/\s/g, '-'),
-        }));
-      }
+      // Auto-populate category if left blank, and set the Language field to
+      // the language the AI detected the complaint was written in.
+      const supportedLangs = ['en', 'hi', 'ta', 'te', 'kn', 'ml', 'mr', 'bn', 'gu', 'pa', 'ur'];
+      const detected = result.detectedLanguage && supportedLangs.includes(result.detectedLanguage)
+        ? result.detectedLanguage
+        : null;
+      setFormData((prev) => ({
+        ...prev,
+        category: prev.category
+          ? prev.category
+          : analysis.category.toLowerCase().replace(/\s/g, '-'),
+        language: detected ?? prev.language,
+      }));
     } catch (err) {
       const message =
         err instanceof ApiError && err.status === 401

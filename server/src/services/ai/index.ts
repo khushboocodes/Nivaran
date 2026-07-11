@@ -43,8 +43,10 @@ export interface ClassifyResult {
   sentiment: Sentiment;
   /** 0..1 confidence the model is correct. */
   confidence: number;
-  /** A one-line summary of the issue. */
+  /** A one-line summary of the issue (always English). */
   summary: string;
+  /** Detected ISO 639-1 language code of the complaint text. */
+  detectedLanguage?: string;
   /** Which provider produced this result. */
   provider: 'gemini' | 'openai' | 'heuristic';
   /**
@@ -467,10 +469,10 @@ const GEMINI_CLASSIFY_PROMPT = [
   '  priority   — one of: "Low", "Medium", "High", "Critical".',
   '  sentiment  — one of: "Positive", "Neutral", "Negative", "Highly Negative".',
   '  confidence — number between 0 and 1.',
-  '  summary    — one short sentence (<= 24 words).',
+  '  summary    — one short sentence in English (<= 24 words).',
+  '  language   — the ISO 639-1 code of the language the complaint is WRITTEN IN. One of: en, hi, ta, te, kn, ml, mr, bn, gu, pa, ur. Detect it from the text (e.g. Gujarati script → "gu", Devanagari Hindi → "hi", transliterated Hinglish → "hi").',
   'Return ONLY the JSON object, no commentary, no code fences.',
-  'The complaint may be in English, Hindi, Hinglish, Tamil, Telugu, Kannada, Malayalam, Marathi, Bengali, Gujarati, Punjabi, or Urdu.',
-  'IMPORTANT: Write the "summary" field in the SAME language as the complaint text. If the complaint is in Gujarati, the summary must be in Gujarati; if Hindi, then Hindi; and so on. The category, department, priority, and sentiment values must stay in English exactly as listed above.',
+  'All field values except the detected language stay in English. The summary must always be in English regardless of the complaint language.',
 ].join('\n');
 
 function geminiUrl(model: string, apiKey: string, stream = false): string {
@@ -520,7 +522,9 @@ export function makeGeminiService(apiKey: string, model: string): AIService {
       } catch {
         throw new Error('Gemini returned non-JSON content');
       }
-      return { ...coerceClassifyResult(parsed), provider: 'gemini' };
+      const raw = (parsed ?? {}) as Record<string, unknown>;
+      const detectedLanguage = typeof raw.language === 'string' ? raw.language : undefined;
+      return { ...coerceClassifyResult(parsed), detectedLanguage, provider: 'gemini' };
     },
   };
 }
