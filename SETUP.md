@@ -96,6 +96,10 @@ npm run dev:all
 - Run `docker compose stop` to pause the database (data is preserved)
 - Next time, just run `docker compose up -d` and `npm run dev:all` again
 
+Never use `docker compose down -v` unless you want the database erased — the
+`-v` flag deletes the Postgres and MinIO volumes. Plain `docker compose down`
+keeps your data.
+
 ---
 
 ## Troubleshooting
@@ -115,6 +119,29 @@ Or install Visual Studio Build Tools from Microsoft.
 
 **"prisma migrate" fails with connection error**
 → Docker containers aren't ready yet. Wait 10 seconds and try again.
+
+**My demo accounts / complaints disappeared, like Docker deleted the database**
+→ Docker does not delete volumes on its own. Compose names the database volume
+after the *project*, which defaults to the folder name, so running the stack
+from a renamed or re-extracted folder points Postgres at a fresh, empty volume.
+`docker-compose.yml` pins `name: nivaran` to prevent this — keep that line.
+
+Check which volumes exist (orphans from older folder names show up here):
+```bash
+docker volume ls --filter name=nivaran
+docker compose config --volumes
+```
+
+Other causes: `npm --prefix server run db:reset`, a `prisma migrate dev` that
+offered to reset on schema drift, or `docker compose down -v`. Use
+`docker compose stop` to pause the stack — `-v` destroys the data.
+
+Snapshot before anything risky, and restore afterwards:
+```bash
+npm run db:backup
+npm run db:restore -- backups/nivaran-<timestamp>.dump
+```
+See `docs/operations.md` for recovering data out of an orphaned volume.
 
 ---
 

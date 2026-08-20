@@ -1,3 +1,12 @@
+# Pin the Compose project name. Without this, Compose derives the project name
+# from the folder the file sits in, and volume names become
+# "<folder>_nivaran_pgdata". Extracting the zip into a differently-named folder
+# (or renaming it) would then point Postgres at a brand-new empty volume, which
+# looks exactly like "Docker deleted my database" — the old data is still there,
+# just orphaned under the old name. Pinning this keeps the volumes stable at
+# "nivaran_nivaran_pgdata" no matter where the project lives on disk.
+name: nivaran
+
 services:
   postgres:
     image: postgres:16.4-alpine

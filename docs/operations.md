@@ -124,14 +124,67 @@ npm --prefix server run db:reset
 npm --prefix server run db:seed
 ```
 
+### Why the dev database can appear to "delete itself"
+
+Docker never expires or garbage-collects a named volume on its own. If the demo
+accounts and complaints vanish, it is almost always one of these:
+
+1. **The project folder was renamed, moved, or re-extracted under a different
+   name.** This is the most common cause. Compose names volumes
+   `<project>_<volume>`, and the project name defaults to the *folder name*.
+   Running the stack from `Nivaran/` uses `nivaran_nivaran_pgdata`; running the
+   same file from `Nivaran-v2/` uses `nivaran-v2_nivaran_pgdata` — a brand-new,
+   empty volume that Postgres initializes from scratch. The old data is still on
+   disk, just orphaned under the old name.
+
+   Guarded against by the top-level `name: nivaran` key in `docker-compose.yml`.
+   Do not remove it. Verify the resolved project at any time with:
+   ```cmd
+   docker compose config --volumes
+   docker compose config | findstr /b name:
+   ```
+   List every Nivaran volume, including orphans from previous folder names:
+   ```cmd
+   docker volume ls --filter name=nivaran
+   ```
+
+2. **`db:reset` or a `prisma migrate dev` that hit schema drift.**
+   `prisma migrate reset --force` is destructive by design. `prisma migrate dev`
+   also offers to reset when the database schema has drifted from the migration
+   history. Take a backup before either.
+
+3. **`docker compose down -v` or `docker system prune --volumes`.** The `-v` flag
+   deletes the volumes. Use `docker compose stop` to pause the stack instead;
+   plain `docker compose down` keeps volumes but removes the containers.
+
 ### Backups
-Container-local Postgres lives in the `nivaran_pgdata` volume. For production:
+
+Local dev snapshot, written to `./backups/` (gitignored):
+```cmd
+npm run db:backup
+npm run db:restore -- backups/nivaran-<timestamp>.dump
+```
+Both wrap `docker cp` rather than shell redirection, because piping `pg_dump -Fc`
+binary output through `>` behaves differently across cmd.exe, PowerShell, and
+bash and can silently corrupt the dump. `db:restore` overwrites the current
+database, so it requires an explicit file path.
+
+For production:
 - Use the cloud provider's snapshot service (RDS automated backups, Neon point-in-time, Supabase automatic backups).
 - For self-hosted, schedule `pg_dump` via cron, write to `S3_BUCKET`/backups, and rotate.
 
+### Recovering data from an orphaned volume
+
+If a volume from an older folder name still exists, inspect it *without*
+touching the original by copying it first:
 ```cmd
-docker exec nivaran-postgres pg_dump -U nivaran -d nivaran -Fc > nivaran-%date%.dump
+docker volume create pgprobe
+docker run --rm -v <old_volume>:/from:ro -v pgprobe:/to alpine sh -c "cp -a /from/. /to/"
+docker run -d --name pgprobe -e POSTGRES_USER=nivaran -e POSTGRES_PASSWORD=nivaran -e POSTGRES_DB=nivaran -v pgprobe:/var/lib/postgresql/data postgres:16.4-alpine
+docker exec pgprobe psql -U nivaran -d nivaran -c "select count(*) from users;"
 ```
+Then `pg_dump` from the probe and `npm run db:restore` into the live database.
+Clean up with `docker rm -f pgprobe` and `docker volume rm pgprobe`.
 
 ## 5. Background jobs
 
