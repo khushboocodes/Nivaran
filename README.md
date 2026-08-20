@@ -142,6 +142,8 @@ npm run dev:server   REM API server only
 npm run dev:all      REM Both, recommended
 npm run build        REM Web client production build
 npm test             REM Vitest suite (23 tests)
+npm run db:backup    REM Snapshot dev Postgres to ./backups
+npm run db:restore   REM Restore a dump: -- backups/nivaran-<stamp>.dump
 ```
 
 Server-only scripts (run with `npm --prefix server run <name>`):
@@ -149,7 +151,7 @@ prisma:generate REM Regenerate Prisma client after schema changes
 prisma:migrate REM Apply pending migrations
 prisma:studio REM Visual DB browser at localhost:5555
 db:seed REM Insert demo users + departments
-db:reset REM Drop and re-create the database (destructive)
+db:reset REM Drop and re-create the database (destructive — run npm run db:backup first)
 backfill:ai REM Re-run AI classifier on every existing complaint
 build REM Compile TS to dist/
 start REM Run compiled server

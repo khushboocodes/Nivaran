@@ -41,6 +41,9 @@ prisma/.env
 # bind-mounts pgdata or minio data into the repo it stays out.
 pgdata/
 minio-data/
+# Local database dumps from `npm run db:backup` — may contain real user data.
+backups/
+*.dump
 
 # --- Editor / IDE -----------------------------------------------------------
 .idea/
