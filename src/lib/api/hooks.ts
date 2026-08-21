@@ -55,7 +55,12 @@ import type {
  * shape was — we drop fields the legacy UI doesn't display and add the
  * `estimatedResolution: string | undefined` text view for the modal.
  */
-function toLegacyComplaint(c: WireComplaint): LegacyComplaint {
+/**
+ * Exported so screens doing their own paginated queries convert wire rows the
+ * same way the shared hooks do, rather than reimplementing the mapping and
+ * drifting from it.
+ */
+export function toLegacyComplaint(c: WireComplaint): LegacyComplaint {
   return {
     id: c.id,
     title: c.title,

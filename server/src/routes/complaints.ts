@@ -17,6 +17,7 @@ import {
   statusToWire,
 } from '../serializers/complaint';
 import { centroidFor } from '../services/planning/state-centroids';
+import { loadSettings } from '../services/settings';
 import { sendComplaintEvent } from '../services/email';
 import { sendSms } from '../services/sms';
 import attachments from './attachments';
@@ -139,7 +140,7 @@ complaints.get('/', async (c) => {
   if (!parsed.success) {
     return c.json({ code: 'invalid_input', details: parsed.error.flatten() }, 400);
   }
-  const { status, priority, q, dept, page, pageSize } = parsed.data;
+  const { status, priority, q, dept, overdue, openOnly, page, pageSize } = parsed.data;
 
   const baseWhere = await scopedWhere(user);
   const filters: Prisma.ComplaintWhereInput = { ...baseWhere };
@@ -147,6 +148,15 @@ complaints.get('/', async (c) => {
   if (status) filters.status = statusFromWire(status);
   if (priority) filters.priority = priorityFromWire(priority);
   if (dept) filters.departmentId = dept;
+  if (openOnly) filters.status = { not: 'Resolved' };
+  if (overdue) {
+    // Read the same threshold the SLA scheduler uses, so "overdue" means one
+    // thing across the system rather than being hardcoded per screen.
+    const settings = await loadSettings();
+    const days = settings.escalation.escalateAfterDays;
+    filters.submittedAt = { lt: new Date(Date.now() - days * 24 * 60 * 60 * 1000) };
+    filters.status = { not: 'Resolved' };
+  }
   if (q && q.trim()) {
     filters.OR = [
       { title: { contains: q, mode: 'insensitive' } },
@@ -259,6 +269,8 @@ complaints.get('/stats', async (c) => {
     criticalByCategoryRows,
     confidence,
     modelled,
+    criticalOpen,
+    overdueCount,
   ] = await Promise.all([
     prisma.complaint.count({ where }),
     prisma.complaint.count({ where: { ...where, status: 'Resolved' } }),
@@ -285,6 +297,24 @@ complaints.get('/stats', async (c) => {
       _count: { _all: true },
     }),
     prisma.complaint.count({ where: { ...where, isSynthetic: true } }),
+    // Critical and still open — what the Escalation Center means by "escalated".
+    // Distinct from the plain Critical count, which includes resolved cases.
+    prisma.complaint.count({
+      where: { ...where, priority: 'Critical', status: { not: 'Resolved' } },
+    }),
+    // Unresolved past the SLA threshold, read from the same setting the scheduler
+    // uses so the two can never disagree.
+    loadSettings().then((settings) =>
+      prisma.complaint.count({
+        where: {
+          ...where,
+          status: { not: 'Resolved' },
+          submittedAt: {
+            lt: new Date(Date.now() - settings.escalation.escalateAfterDays * 24 * 60 * 60 * 1000),
+          },
+        },
+      }),
+    ),
   ]);
 
   // Daily volume. Raw SQL because date_trunc has no Prisma equivalent and
@@ -318,7 +348,12 @@ complaints.get('/stats', async (c) => {
     total,
     pending,
     resolved,
+    /** All Critical, including resolved ones. */
     escalated,
+    /** Critical and still open — the Escalation Center's headline figure. */
+    criticalOpen,
+    /** Unresolved past the configured SLA threshold. */
+    overdue: overdueCount,
     resolutionRate: total > 0 ? resolved / total : 0,
     byStatus: fold(byStatusRows, (r: { status: Prisma.ComplaintGroupByOutputType['status'] }) =>
       statusToWire(r.status),

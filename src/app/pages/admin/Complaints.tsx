@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import { Search } from 'lucide-react';
 import { Input } from '../../components/ui/input';
@@ -12,8 +12,12 @@ import {
   TableHeader,
   TableRow,
 } from '../../components/ui/table';
-import { useComplaints, type Complaint } from '../../contexts/ComplaintContext';
-import { useScopedComplaints } from '../../contexts/DepartmentScopeContext';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { apiClient } from '../../../lib/api/client';
+import { toLegacyComplaint } from '../../../lib/api/hooks';
+import { type Complaint } from '../../contexts/ComplaintContext';
+import { useDepartmentScope } from '../../contexts/DepartmentScopeContext';
 import { getStatusColor, getPriorityColor } from '../../../lib/badge-colors';
 import ComplaintDetailsModal from '../../components/modals/ComplaintDetailsModal';
 import { format } from 'date-fns';
@@ -34,38 +38,80 @@ const PRIORITY_FROM_OPTION: Record<string, Complaint['priority']> = {
   'critical': 'Critical',
 };
 
+/** Page size options. Capped at 100 by the API. */
+const PAGE_SIZES = [25, 50, 100];
+
+interface ListResponse {
+  items: Parameters<typeof toLegacyComplaint>[0][];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export default function AdminComplaints() {
-  const { complaints: allComplaints } = useComplaints();
-  const complaints = useScopedComplaints(allComplaints);
+  const { scope } = useDepartmentScope();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all-status');
   const [priorityFilter, setPriorityFilter] = useState('all-priority');
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  /** Debounced search term, so typing does not fire a query per keystroke. */
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  const filteredComplaints = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return complaints.filter((c) => {
-      const matchesSearch =
-        q === '' ||
-        c.title.toLowerCase().includes(q) ||
-        c.id.toLowerCase().includes(q) ||
-        c.description.toLowerCase().includes(q);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 350);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
-      // 'escalated' isn't a real status — the context models escalation via
-      // `priority === 'Critical'`. Treat the filter accordingly.
-      const matchesStatus =
-        statusFilter === 'all-status' ||
-        (statusFilter === 'escalated'
-          ? c.priority === 'Critical'
-          : c.status === STATUS_FROM_OPTION[statusFilter]);
+  // Any change to the filters invalidates the current page number: staying on
+  // page 7 of a narrower result set would show an empty table.
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter, priorityFilter, pageSize, scope]);
 
-      const matchesPriority =
-        priorityFilter === 'all-priority' ||
-        c.priority === PRIORITY_FROM_OPTION[priorityFilter];
+  /**
+   * Filtering, searching and paging all happen in Postgres.
+   *
+   * This page used to filter the complaint list held in the client cache, which
+   * meant it could only ever show and search within 25 rows out of ~150,000 — and
+   * gave no indication that the rest existed.
+   */
+  const listQuery = useQuery<ListResponse>({
+    queryKey: ['complaints', 'list', 'admin', { page, pageSize, debouncedSearch, statusFilter, priorityFilter, scope }],
+    queryFn: () =>
+      apiClient.get<ListResponse>('/complaints', {
+        query: {
+          page,
+          pageSize,
+          ...(debouncedSearch ? { q: debouncedSearch } : {}),
+          // 'escalated' is not a status. The system models escalation as
+          // Critical priority, so the option maps to a priority filter.
+          ...(statusFilter === 'escalated'
+            ? { priority: 'Critical' }
+            : statusFilter !== 'all-status'
+              ? { status: STATUS_FROM_OPTION[statusFilter] }
+              : {}),
+          ...(priorityFilter !== 'all-priority' && statusFilter !== 'escalated'
+            ? { priority: PRIORITY_FROM_OPTION[priorityFilter] }
+            : {}),
+          ...(scope !== 'all' ? { dept: scope } : {}),
+        },
+      }),
+    // Keep the previous page visible while the next one loads, so paging does not
+    // flash an empty table.
+    placeholderData: keepPreviousData,
+  });
 
-      return matchesSearch && matchesStatus && matchesPriority;
-    });
-  }, [complaints, searchQuery, statusFilter, priorityFilter]);
+  const filteredComplaints = useMemo(
+    () => (listQuery.data?.items ?? []).map(toLegacyComplaint),
+    [listQuery.data],
+  );
+
+  const total = listQuery.data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const firstRow = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const lastRow = Math.min(page * pageSize, total);
 
   return (
     <AdminLayout>
@@ -73,7 +119,20 @@ export default function AdminComplaints() {
         {/* Header */}
         <div className="mb-5">
           <h1 className="text-2xl font-bold text-[#0F172A] mb-1">Complaints Management</h1>
-          <p className="text-sm text-[#7C8AA5]">Review, assign, and resolve citizen complaints</p>
+          <p className="text-sm text-[#7C8AA5]">
+            {listQuery.isLoading ? (
+              'Loading…'
+            ) : (
+              <>
+                <span className="font-semibold text-[#0F172A]">
+                  {total.toLocaleString('en-IN')}
+                </span>{' '}
+                complaint{total === 1 ? '' : 's'} match
+                {total === 1 ? 'es' : ''} the current filters. Search and paging run against the
+                whole dataset.
+              </>
+            )}
+          </p>
         </div>
 
         <Card className="border-[#E5EAF3] rounded-[20px] bg-white" style={{boxShadow: '0 4px 14px rgba(15, 23, 42, 0.05)'}}>
@@ -133,9 +192,11 @@ export default function AdminComplaints() {
                 <TableRow>
                   <TableCell colSpan={6} className="h-56 text-center">
                     <div className="text-sm text-[#7C8AA5]">
-                      {complaints.length === 0
-                        ? 'No complaints found'
-                        : 'No complaints match your filters'}
+                      {listQuery.isLoading
+                        ? 'Loading complaints…'
+                        : listQuery.isError
+                          ? 'Could not load complaints. Please retry.'
+                          : 'No complaints match your filters'}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -171,6 +232,61 @@ export default function AdminComplaints() {
               )}
             </TableBody>
           </Table>
+
+          {/* Pagination. Without this the table could only ever show the first
+              page, with nothing on screen to suggest 149,000 more rows existed. */}
+          <div className="p-4 border-t border-[#E5EAF3] flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-[#7C8AA5] tabular-nums">
+                {total === 0
+                  ? 'No results'
+                  : `Showing ${firstRow.toLocaleString('en-IN')}–${lastRow.toLocaleString('en-IN')} of ${total.toLocaleString('en-IN')}`}
+              </span>
+              {listQuery.isFetching && (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#7C8AA5]" />
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-[#7C8AA5]">
+                Rows
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="ml-1.5 h-8 px-2 border border-[#E5EAF3] rounded-lg bg-white text-[#0F172A] text-xs"
+                  aria-label="Rows per page"
+                >
+                  {PAGE_SIZES.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1 || listQuery.isFetching}
+                  className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#E5EAF3] text-[#0F172A] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#F8FAFC]"
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="w-4 h-4" strokeWidth={2} />
+                </button>
+                <span className="text-xs text-[#0F172A] tabular-nums px-2">
+                  Page {page.toLocaleString('en-IN')} of {totalPages.toLocaleString('en-IN')}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages || listQuery.isFetching}
+                  className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#E5EAF3] text-[#0F172A] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#F8FAFC]"
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="w-4 h-4" strokeWidth={2} />
+                </button>
+              </div>
+            </div>
+          </div>
         </Card>
       </div>
 

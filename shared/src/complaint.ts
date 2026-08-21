@@ -72,6 +72,21 @@ export const ComplaintListQuerySchema = z.object({
   priority: PrioritySchema.optional(),
   q: z.string().optional(),
   dept: z.string().optional(),
+  /**
+   * Restrict to unresolved complaints older than the SLA threshold. Evaluated
+   * server-side against the same `escalation.escalateAfterDays` setting the SLA
+   * scheduler uses, so the Escalation Center and the scheduler can never disagree
+   * about what counts as overdue.
+   */
+  overdue: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
+  /** Exclude Resolved complaints. Used by the escalated and overdue lists. */
+  openOnly: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(25),
 });
