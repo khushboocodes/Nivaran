@@ -13,6 +13,7 @@
     "prisma:studio": "prisma studio",
     "db:reset": "prisma migrate reset --force",
     "db:seed": "prisma db seed",
+    "seed:citizen": "tsx prisma/seed-citizen-demo.ts",
     "backfill:ai": "tsx prisma/backfill-ai.ts",
     "ingest:census": "tsx prisma/ingest/census2011.ts",
     "ingest:demand": "tsx prisma/ingest/synthesize-demand.ts",

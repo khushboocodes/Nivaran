@@ -19,6 +19,19 @@ docker exec nivaran-postgres psql -U nivaran -d nivaran -c "select (select count
 Expect roughly 640 districts, 6,400 indicators, ~150,000 complaints, and 30
 recommendation rows. If any are zero, see "Cold start" below.
 
+The demo citizen should also have a history to show, or the citizen portal looks
+empty:
+
+```cmd
+npm --prefix server run seed:citizen
+```
+
+That is idempotent, so running it again is harmless. It gives the account twenty
+complaints across all eight categories with a realistic status funnel, seven
+resolved with star ratings, and two dictated in Marathi and Hindi — which means
+you can show the stored original-language transcript even if the Gemini quota is
+exhausted and live dictation is unavailable.
+
 Have two browser tabs open and logged in ahead of time, because logging in on
 stage wastes fifteen seconds:
 
@@ -166,6 +179,7 @@ npm --prefix server run prisma:migrate
 npm --prefix server run db:seed
 npm --prefix server run ingest:census
 npm --prefix server run ingest:demand
+npm --prefix server run seed:citizen
 npm --prefix server run planning:briefs -- --limit 25
 ```
 

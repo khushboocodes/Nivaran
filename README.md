@@ -227,6 +227,7 @@ prisma:generate REM Regenerate Prisma client after schema changes
 prisma:migrate REM Apply pending migrations
 prisma:studio REM Visual DB browser at localhost:5555
 db:seed REM Insert demo users + departments
+seed:citizen REM Give the demo citizen a realistic 20-complaint history (idempotent)
 db:reset REM Drop and re-create the database (destructive — run npm run db:backup first)
 backfill:ai REM Re-run AI classifier on every existing complaint
 ingest:census REM Load Census 2011 district data (640 districts, 6,400 indicators)
@@ -241,8 +242,17 @@ To bring the planning layer up from an empty database:
 npm --prefix server run db:seed
 npm --prefix server run ingest:census
 npm --prefix server run ingest:demand
+npm --prefix server run seed:citizen
 npm --prefix server run planning:briefs -- --limit 25
 ```
+
+Note the difference between the last two data steps. `ingest:demand` generates the
+~150,000-row modelled corpus that makes district hotspots measurable; those rows
+are flagged and disclosed as modelled. `seed:citizen` writes twenty individually
+authored complaints onto the demo citizen account so the citizen portal has a
+believable history — varied categories, a realistic status funnel, resolution
+times, star ratings, and two dictated in Marathi and Hindi. They are demo fixtures
+for a demo account, not modelled demand, and are not flagged as synthetic.
 
 The census ingest downloads its source CSV on first run and caches it locally, so
 every run after the first works offline. See
