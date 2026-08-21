@@ -4,41 +4,61 @@ import { Bot, Loader2, X } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
-import { useComplaints } from '../../contexts/ComplaintContext';
-import { useScopedComplaints } from '../../contexts/DepartmentScopeContext';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../../../lib/api/client';
+import { useDepartmentScope } from '../../contexts/DepartmentScopeContext';
+
+/**
+ * Server-computed aggregates. Analytics previously derived every breakdown from
+ * the complaint list in the client cache — a single page of 25 rows — so with
+ * ~150,000 complaints in the database this page reported on 25 of them. Counting
+ * happens in Postgres now.
+ */
+interface AnalyticsStats {
+  total: number;
+  pending: number;
+  resolved: number;
+  escalated: number;
+  resolutionRate: number;
+  byCategory: Record<string, number>;
+  byPriority: Record<string, number>;
+  bySentiment: Record<string, number>;
+  criticalByCategory: Record<string, number>;
+  byStatus: Record<string, number>;
+  aiConfidence: { average: number | null; classified: number };
+}
 
 export default function AdminAnalytics() {
-  const { complaints: allComplaints } = useComplaints();
-  const complaints = useScopedComplaints(allComplaints);
+  const { scope } = useDepartmentScope();
   const [aiReport, setAiReport] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  const statsQuery = useQuery<AnalyticsStats>({
+    queryKey: ['complaints', 'stats', 'analytics', scope],
+    queryFn: () =>
+      apiClient.get<AnalyticsStats>('/complaints/stats', {
+        query: scope !== 'all' ? { dept: scope } : undefined,
+      }),
+  });
+  const stats = statsQuery.data;
+
   const generateAIReport = async () => {
-    if (complaints.length === 0) {
+    if (!stats || stats.total === 0) {
       alert('No complaints to analyze. Submit some complaints first.');
       return;
     }
     setIsGenerating(true);
     try {
-      // Build a summary of current data to send to AI
-      const categoryStats: Record<string, number> = {};
-      const priorityStats: Record<string, number> = {};
-      const sentimentStats: Record<string, number> = {};
-      const statusStats: Record<string, number> = {};
-      for (const c of complaints) {
-        categoryStats[c.category] = (categoryStats[c.category] ?? 0) + 1;
-        priorityStats[c.priority] = (priorityStats[c.priority] ?? 0) + 1;
-        sentimentStats[c.sentiment] = (sentimentStats[c.sentiment] ?? 0) + 1;
-        statusStats[c.status] = (statusStats[c.status] ?? 0) + 1;
-      }
-
+      // The figures sent to the model are the server's aggregates over the whole
+      // dataset, not a sample of it. Previously this described 25 rows while
+      // implying it described everything.
       const prompt = [
         'Analyze these civic complaint statistics and provide a brief actionable report:',
-        `Total complaints: ${complaints.length}`,
-        `Categories: ${JSON.stringify(categoryStats)}`,
-        `Priority breakdown: ${JSON.stringify(priorityStats)}`,
-        `Sentiment: ${JSON.stringify(sentimentStats)}`,
-        `Status: ${JSON.stringify(statusStats)}`,
+        `Total complaints: ${stats.total}`,
+        `Categories: ${JSON.stringify(stats.byCategory)}`,
+        `Priority breakdown: ${JSON.stringify(stats.byPriority)}`,
+        `Sentiment: ${JSON.stringify(stats.bySentiment)}`,
+        `Status: ${JSON.stringify(stats.byStatus)}`,
         '',
         'Provide: 1) Key findings (2-3 bullet points), 2) Top concern areas, 3) Recommended actions (2-3 points). Keep it under 200 words.',
       ].join('\n');
@@ -86,61 +106,38 @@ export default function AdminAnalytics() {
     }
   };
 
-  // Recompute category/priority stats locally so they obey the scope.
-  const getCategoryStats = (): Record<string, number> => {
-    const out: Record<string, number> = {};
-    for (const c of complaints) out[c.category] = (out[c.category] ?? 0) + 1;
-    return out;
-  };
-  const getPriorityStats = (): Record<string, number> => {
-    const out: Record<string, number> = {};
-    for (const c of complaints) out[c.priority] = (out[c.priority] ?? 0) + 1;
-    return out;
-  };
-
-  const sentimentCounts = useMemo(() => {
-    return complaints.reduce(
-      (acc, c) => {
-        acc[c.sentiment] = (acc[c.sentiment] ?? 0) + 1;
-        return acc;
-      },
-      {
-        Positive: 0,
-        Neutral: 0,
-        Negative: 0,
-        'Highly Negative': 0,
-      } as Record<string, number>,
-    );
-  }, [complaints]);
+  const sentimentCounts = useMemo(
+    () => ({
+      Positive: stats?.bySentiment['Positive'] ?? 0,
+      Neutral: stats?.bySentiment['Neutral'] ?? 0,
+      Negative: stats?.bySentiment['Negative'] ?? 0,
+      'Highly Negative': stats?.bySentiment['Highly Negative'] ?? 0,
+    }),
+    [stats?.bySentiment],
+  );
 
   const priorityData = useMemo(() => {
-    const stats = getPriorityStats();
+    const p = stats?.byPriority ?? {};
     return [
-      { id: 1, label: 'low', value: stats.Low ?? 0 },
-      { id: 2, label: 'medium', value: stats.Medium ?? 0 },
-      { id: 3, label: 'high', value: stats.High ?? 0 },
-      { id: 4, label: 'critical', value: stats.Critical ?? 0 },
+      { id: 1, label: 'low', value: p.Low ?? 0 },
+      { id: 2, label: 'medium', value: p.Medium ?? 0 },
+      { id: 3, label: 'high', value: p.High ?? 0 },
+      { id: 4, label: 'critical', value: p.Critical ?? 0 },
     ];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [complaints]);
+  }, [stats?.byPriority]);
 
-  const categoryStats = getCategoryStats();
+  const categoryStats = stats?.byCategory ?? {};
   const hasCategories = Object.keys(categoryStats).length > 0;
 
-  // Per-category urgency: critical share of all complaints in each category.
+  // Per-category urgency: the critical share of each category's own volume.
   const urgencyEntries = useMemo(() => {
-    const map = new Map<string, { critical: number; total: number }>();
-    for (const c of complaints) {
-      const entry = map.get(c.category) ?? { critical: 0, total: 0 };
-      entry.total += 1;
-      if (c.priority === 'Critical') entry.critical += 1;
-      map.set(c.category, entry);
-    }
-    return Array.from(map.entries()).map(([category, v]) => ({
+    const totals = stats?.byCategory ?? {};
+    const criticals = stats?.criticalByCategory ?? {};
+    return Object.entries(totals).map(([category, total]) => ({
       category,
-      pct: v.total > 0 ? Math.round((v.critical / v.total) * 100) : 0,
+      pct: total > 0 ? Math.round(((criticals[category] ?? 0) / total) * 100) : 0,
     }));
-  }, [complaints]);
+  }, [stats?.byCategory, stats?.criticalByCategory]);
 
   return (
     <AdminLayout>
@@ -249,7 +246,7 @@ export default function AdminAnalytics() {
               </svg>
               <h3 className="font-semibold text-[#0F172A] text-sm">Urgency by Category</h3>
             </div>
-            {complaints.length > 0 ? (
+            {urgencyEntries.length > 0 ? (
               <div className="h-52 overflow-auto space-y-2 pr-1">
                 {urgencyEntries.map((row) => (
                   <div key={row.category} className="flex items-center justify-between text-sm">

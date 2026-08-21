@@ -16,6 +16,7 @@ import {
   statusFromWire,
   statusToWire,
 } from '../serializers/complaint';
+import { centroidFor } from '../services/planning/state-centroids';
 import { sendComplaintEvent } from '../services/email';
 import { sendSms } from '../services/sms';
 import attachments from './attachments';
@@ -254,6 +255,8 @@ complaints.get('/stats', async (c) => {
     byStatusRows,
     byCategoryRows,
     byPriorityRows,
+    bySentimentRows,
+    criticalByCategoryRows,
     confidence,
     modelled,
   ] = await Promise.all([
@@ -264,6 +267,15 @@ complaints.get('/stats', async (c) => {
     prisma.complaint.groupBy({ by: ['status'], where, _count: { _all: true }, orderBy: { status: 'asc' } }),
     prisma.complaint.groupBy({ by: ['category'], where, _count: { _all: true }, orderBy: { category: 'asc' } }),
     prisma.complaint.groupBy({ by: ['priority'], where, _count: { _all: true }, orderBy: { priority: 'asc' } }),
+    prisma.complaint.groupBy({ by: ['sentiment'], where, _count: { _all: true }, orderBy: { sentiment: 'asc' } }),
+    // Critical count per category, so urgency can be expressed as a share of
+    // each category's own volume rather than of the national total.
+    prisma.complaint.groupBy({
+      by: ['category'],
+      where: { ...where, priority: 'Critical' },
+      _count: { _all: true },
+      orderBy: { category: 'asc' },
+    }),
     // Average only over rows a classifier actually scored. Modelled demand rows
     // carry 0 by design, and including them would drag the figure toward zero
     // and misreport classifier accuracy.
@@ -313,6 +325,11 @@ complaints.get('/stats', async (c) => {
     ),
     byCategory: fold(byCategoryRows, (r: { category: string }) => r.category),
     byPriority: fold(byPriorityRows, (r: { priority: string }) => String(r.priority)),
+    // Prisma's identifier is HighlyNegative; the wire and UI use the spaced form.
+    bySentiment: fold(bySentimentRows, (r: { sentiment: string }) =>
+      String(r.sentiment) === 'HighlyNegative' ? 'Highly Negative' : String(r.sentiment),
+    ),
+    criticalByCategory: fold(criticalByCategoryRows, (r: { category: string }) => r.category),
     // Postgres count() is bigint; JSON cannot carry BigInt, so narrow to number.
     daily: dailyRows.map((r) => ({
       date: r.day instanceof Date ? r.day.toISOString() : String(r.day),
@@ -326,6 +343,133 @@ complaints.get('/stats', async (c) => {
     // than leaving a reader to assume it is all real citizen reporting.
     dataset: { real: total - modelled, modelled },
     windowDays: days,
+  });
+});
+
+/**
+ * Geographic distribution, for the heatmap.
+ *
+ *   GET /api/complaints/geo?dept=<id>&category=<name>
+ *
+ * WHY THIS AGGREGATES RATHER THAN RETURNING POINTS
+ * ------------------------------------------------
+ * The heatmap previously plotted one marker per complaint from the client's
+ * cached page. That was doubly broken: the page held 25 rows, and almost none of
+ * them carried coordinates, so the map rendered empty while claiming 25
+ * complaints.
+ *
+ * Sending 150,000 points to the browser is not the fix — it would be slow and
+ * unreadable. Instead complaints are counted per state in Postgres and returned
+ * as 35 proportional circles. Districts are real census records, so the
+ * district-to-state rollup is real data; only the circle's position is
+ * approximate, and it is explicitly a state centroid rather than a claim about
+ * where any individual complaint was filed.
+ *
+ * Complaints that carry genuine coordinates — anything filed with "Use my
+ * location" — are returned separately as exact pins, capped so a future flood of
+ * real submissions cannot bloat the response.
+ *
+ * Registered before `GET /:id` so `:id` cannot swallow "geo".
+ */
+complaints.get('/geo', async (c) => {
+  const user = getUser(c);
+  if (!user) return c.json({ code: 'unauthenticated' }, 401);
+  if (user.role === 'citizen') return c.json({ code: 'forbidden' }, 403);
+
+  const url = new URL(c.req.url);
+  const deptParam = url.searchParams.get('dept') ?? undefined;
+  const category = url.searchParams.get('category') ?? undefined;
+
+  let departmentId: string | undefined = deptParam;
+  if (user.role === 'officer') {
+    const officer = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { departmentId: true },
+    });
+    if (!officer?.departmentId) {
+      return c.json({ states: [], pins: [], coverage: { total: 0, mapped: 0, withCoordinates: 0 } });
+    }
+    // An officer cannot widen scope via ?dept=.
+    departmentId = officer.departmentId;
+  }
+
+  const where: Prisma.ComplaintWhereInput = {
+    ...(departmentId ? { departmentId } : {}),
+    ...(category ? { category } : {}),
+  };
+
+  const [grouped, total, pinRows] = await Promise.all([
+    // Group by district, then roll up to state in memory. Grouping by state
+    // directly is not possible in one Prisma query because the relation is two
+    // hops away, and 640 district rows are trivial to fold.
+    prisma.complaint.groupBy({
+      by: ['districtId'],
+      where: { ...where, districtId: { not: null } },
+      _count: { _all: true },
+      orderBy: { districtId: 'asc' },
+    }),
+    prisma.complaint.count({ where }),
+    prisma.complaint.findMany({
+      where: { ...where, lat: { not: null }, lng: { not: null } },
+      select: { id: true, title: true, category: true, priority: true, lat: true, lng: true },
+      orderBy: { submittedAt: 'desc' },
+      take: 500,
+    }),
+  ]);
+
+  const districts = await prisma.district.findMany({
+    where: { id: { in: grouped.map((g) => g.districtId).filter((id): id is string => !!id) } },
+    select: { id: true, name: true, state: { select: { name: true } } },
+  });
+  const stateByDistrict = new Map(districts.map((d) => [d.id, d.state.name]));
+
+  const byState = new Map<string, { count: number; districts: number }>();
+  let mapped = 0;
+  for (const g of grouped) {
+    if (!g.districtId) continue;
+    const stateName = stateByDistrict.get(g.districtId);
+    if (!stateName) continue;
+    const cur = byState.get(stateName) ?? { count: 0, districts: 0 };
+    cur.count += g._count._all;
+    cur.districts += 1;
+    byState.set(stateName, cur);
+    mapped += g._count._all;
+  }
+
+  const states = [...byState.entries()]
+    .map(([name, v]) => {
+      const centre = centroidFor(name);
+      return centre
+        ? { state: name, lat: centre.lat, lng: centre.lng, count: v.count, districts: v.districts }
+        : null;
+    })
+    .filter((s): s is NonNullable<typeof s> => s !== null)
+    .sort((a, b) => b.count - a.count);
+
+  // A state present in the data but absent from the centroid table would be
+  // silently dropped above, so surface it rather than losing complaints quietly.
+  const unmapped = [...byState.keys()].filter((n) => !centroidFor(n));
+  if (unmapped.length) {
+    console.warn(`[geo] no centroid for state(s): ${unmapped.join(', ')}`);
+  }
+
+  return c.json({
+    states,
+    pins: pinRows.map((p) => ({
+      id: p.id,
+      title: p.title,
+      category: p.category,
+      priority: p.priority,
+      lat: p.lat,
+      lng: p.lng,
+    })),
+    coverage: {
+      total,
+      /** Complaints attributable to a state, and so represented on the map. */
+      mapped,
+      /** Complaints carrying their own exact coordinates. */
+      withCoordinates: pinRows.length,
+    },
   });
 });
 

@@ -19,7 +19,10 @@ interface ReportResponse {
 
 export default function AdminReports() {
   const [reportType, setReportType] = useState<ReportType>('category');
-  const [dateRangeDays, setDateRangeDays] = useState('30');
+  // Defaults to all time so the headline totals agree with the dashboard on first
+  // load. A 30-day default made Reports look like it disagreed with every other
+  // screen when it was simply answering a narrower question.
+  const [dateRangeDays, setDateRangeDays] = useState('3650');
   const [downloading, setDownloading] = useState<'pdf' | 'csv' | null>(null);
 
   const reportQuery = useQuery<ReportResponse>({
@@ -106,6 +109,11 @@ export default function AdminReports() {
                   <option value="30">Last 30 days</option>
                   <option value="90">Last 90 days</option>
                   <option value="365">Last year</option>
+                  {/* Reports are windowed, which is right for a report, but it
+                      meant the totals here never matched the dashboard's all-time
+                      figures and looked like a discrepancy. 3650 is the
+                      server-side cap on the days parameter. */}
+                  <option value="3650">All time</option>
                 </select>
               </div>
             </div>
