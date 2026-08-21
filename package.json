@@ -12,7 +12,8 @@
     "test": "vitest --run",
     "test:watch": "vitest",
     "db:backup": "node scripts/db-backup.mjs",
-    "db:restore": "node scripts/db-restore.mjs"
+    "db:restore": "node scripts/db-restore.mjs",
+    "db:seed-cloud": "node scripts/db-seed-cloud.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

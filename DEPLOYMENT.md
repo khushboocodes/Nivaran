@@ -170,22 +170,90 @@ The backend needs to know the frontend URL for CORS and cookie settings.
 
 ---
 
+## Step 7: Load the demand corpus into the cloud database
+
+A freshly migrated database has the schema but no data, and an empty national
+planning screen is indistinguishable from a broken one. Push the local corpus
+up in one command:
+
+```bash
+npm run db:backup
+npm run db:seed-cloud -- backups/<newest>.dump "postgresql://user:pass@host/db?sslmode=require"
+```
+
+`db:seed-cloud` runs `pg_restore` inside the local Postgres container, so no
+host-side Postgres client is needed and there is no client/server version skew.
+It refuses a non-`postgresql://` target and refuses a localhost target, because
+it restores with `--clean` and a mistyped target would wipe the dev database.
+The connection string is passed through the environment rather than argv, so it
+does not appear in a process list.
+
+Reference size: 149,986 complaints + 640 districts + 6,400 census indicators is
+**122 MB** on disk, or a 7.5 MB compressed dump.
+
+---
+
 ## Free Tier Limits
 
 | Platform | Limit | Notes |
 |----------|-------|-------|
 | Vercel | 100 GB bandwidth/mo | Plenty for a demo |
-| Render | Server sleeps after 15 min | 750 free hours/mo |
-| Neon | 0.5 GB storage | ~50k complaints |
+| Render | Server sleeps after 15 min | 750 free hours/mo; cold start ~50 s |
+| Neon | 0.5 GB storage | ~600k complaints (150k ≈ 122 MB) |
 | Cloudflare R2 | 10 GB storage | ~500 images |
+
+> **Render's own free Postgres expires 30 days after creation and is then
+> deleted.** Neon's free tier does not expire, which is why it is the database
+> in this guide. If you used a Render database, expect it to vanish after a
+> month — see "the site loads a blank page" below for what that looks like.
+
+---
+
+## Health endpoints
+
+Two separate probes, because "the process is dead" and "the database is dead"
+need different responses:
+
+| Endpoint | Touches DB | Meaning |
+|----------|-----------|---------|
+| `GET /api/health` | No | Liveness. The process is up and serving. Use this as the platform health check so a database outage does not cause endless container restarts. |
+| `GET /api/ready` | Yes | Readiness. `200` with `{"database":"up"}`, or `503` with the connection error when Postgres is unreachable. |
+
+```bash
+curl https://<your-api-host>/api/health   # {"ok":true,...}
+curl https://<your-api-host>/api/ready    # {"ok":true,"database":"up",...}
+```
 
 ---
 
 ## Troubleshooting
 
+**The site loads a blank white page**
+
+Check the API first — this is almost always a backend fault, not a frontend one:
+
+```bash
+curl -m 60 https://<your-api-host>/api/health
+curl -m 60 https://<your-api-host>/api/ready
+```
+
+- `/api/health` **hangs with no response at all** → the container is not
+  listening. The platform router accepts your TCP connection and then waits
+  forever for an upstream that never answers. Check the Render logs for a crash
+  loop at boot.
+- `/api/health` is `200` but `/api/ready` is `503` → the process is fine and the
+  database is unreachable. Read the `error` field: it names the host and port.
+  The usual cause is an expired free database or a stale `DATABASE_URL`.
+
+The frontend is built so neither case can blank the page: requests carry a 45 s
+deadline so they always settle, public pages render without waiting on the API,
+and signed-in pages show a "cannot reach the server" screen. If you *do* see a
+blank page, the deployed bundle predates that fix — redeploy from `main`.
+
 **API returns 500 on first request**
 - Check Render logs → Dashboard → Logs tab
-- Most likely: DATABASE_URL is wrong or Prisma migration failed
+- Hit `/api/ready` first; a `503` there identifies it as a database problem in one step
+- Most likely: `DATABASE_URL` is wrong, or the database was deleted
 
 **Attachments fail to upload**
 - Check R2 credentials in Render environment
@@ -204,7 +272,10 @@ The backend needs to know the frontend URL for CORS and cookie settings.
 
 - **Custom domain:** Vercel supports free custom domains (add in project settings)
 - **Email notifications:** Sign up for Resend (3k emails/mo free) and add SMTP credentials
-- **AI classification:** Add `OPENAI_API_KEY` to Render for smarter complaint routing
+- **AI classification:** Add `GEMINI_API_KEY` to Render (with `AI_PROVIDER=gemini`)
+  for model-backed classification, triage and policy briefings. Without a key the
+  API silently falls back to the deterministic heuristic classifier, so the
+  deployment keeps working — but the AI features are not exercised.
 - **Remove demo accounts:** Delete them from the Users page before going live
 
 ---
