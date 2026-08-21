@@ -156,6 +156,101 @@ function priorityFor(gap: number): Priority {
   return r < 0.1 ? Priority.High : r < 0.55 ? Priority.Medium : Priority.Low;
 }
 
+/**
+ * Typical days to resolve, by category.
+ *
+ * The first version of this generator picked `resolvedAt` uniformly between the
+ * submission date and today. That produced a mean turnaround of roughly three
+ * months, which is not how municipal service requests behave, and — because it was
+ * independent of category — made every category's satisfaction score land within
+ * 0.1 of every other. The Feedback Analytics by-category panel was technically
+ * populated and analytically worthless.
+ *
+ * These figures reflect the real shape of the work: swapping a streetlight bulb is
+ * a same-week job, resurfacing a road is a capital works programme. Because ratings
+ * track turnaround, this is what gives the analytics a spread an administrator
+ * could actually act on.
+ */
+const RESOLUTION_DAYS: Record<string, number> = {
+  Electricity: 5,
+  'Street Lights': 6,
+  'Waste Management': 7,
+  'Water Supply': 9,
+  Sanitation: 14,
+  Drainage: 18,
+  'Public Health': 21,
+  'Roads & Infrastructure': 32,
+};
+
+/**
+ * Draw an actual resolution time for one complaint.
+ *
+ * Spread from 0.4x to 2.2x the category typical, so individual cases vary while the
+ * category-level signal survives.
+ */
+function resolutionDaysFor(category: string): number {
+  const typical = RESOLUTION_DAYS[category] ?? 12;
+  return Math.max(0.25, typical * (0.4 + rand() * 1.8));
+}
+
+/**
+ * Share of resolved complaints whose citizen leaves a rating.
+ *
+ * Real grievance systems see a minority of closures rated. Modelling every
+ * resolved complaint as rated would make Feedback Analytics look like a survey
+ * with perfect response, which no civic platform achieves.
+ */
+const FEEDBACK_RESPONSE_RATE = 0.32;
+
+/** Share of ratings that also carry a written comment. */
+const FEEDBACK_COMMENT_RATE = 0.45;
+
+/**
+ * Rating driven by how long resolution took.
+ *
+ * Deliberately not random. Satisfaction tracking turnaround is the single most
+ * robust finding in public-service feedback, and it gives Feedback Analytics a
+ * by-category spread that means something: categories the system resolves slowly
+ * score worse, which is exactly the signal an administrator would look for.
+ */
+function ratingFor(daysToResolve: number): number {
+  const r = rand();
+  if (daysToResolve <= 3) return r < 0.55 ? 5 : r < 0.9 ? 4 : 3;
+  if (daysToResolve <= 10) return r < 0.2 ? 5 : r < 0.65 ? 4 : r < 0.9 ? 3 : 2;
+  if (daysToResolve <= 25) return r < 0.08 ? 5 : r < 0.35 ? 4 : r < 0.7 ? 3 : r < 0.92 ? 2 : 1;
+  return r < 0.05 ? 4 : r < 0.3 ? 3 : r < 0.7 ? 2 : 1;
+}
+
+/** Comment pools by rating band, so the text matches the score. */
+const COMMENTS: Record<'high' | 'mid' | 'low', string[]> = {
+  high: [
+    'Resolved quickly, thank you.',
+    'The team came the next day and fixed it properly.',
+    'Very satisfied with how fast this was handled.',
+    'Good response. The problem has not returned.',
+    'समस्या जल्दी हल हो गई, धन्यवाद।',
+  ],
+  mid: [
+    'Fixed eventually, but it took longer than expected.',
+    'The work was done but nobody informed us beforehand.',
+    'Partly resolved. The main issue is better but not fully fixed.',
+    'Acceptable, though follow-up was needed twice.',
+    'काम हो गया लेकिन बहुत समय लगा।',
+  ],
+  low: [
+    'Marked resolved but the problem is still there.',
+    'Took over a month and we had to complain repeatedly.',
+    'No one came to inspect before closing this.',
+    'The same issue returned within a week.',
+    'बहुत देर लगी और समस्या अभी भी है।',
+  ],
+};
+
+function commentFor(rating: number): string {
+  const band = rating >= 4 ? 'high' : rating === 3 ? 'mid' : 'low';
+  return pick(COMMENTS[band]);
+}
+
 /** Sentiment tracks priority: people are angrier about worse problems. */
 function sentimentFor(priority: Priority): Sentiment {
   const r = rand();
@@ -350,9 +445,17 @@ async function main() {
         aiSummary: '',
         isSynthetic: true,
         submittedAt,
+        // Turnaround is drawn from the category's typical duration rather than
+        // spread uniformly over the complaint's whole age. Clamped so a recently
+        // filed complaint cannot be resolved in the future.
         resolvedAt:
           status === Status.Resolved
-            ? new Date(submittedAt.getTime() + rand() * (now - submittedAt.getTime()))
+            ? new Date(
+                Math.min(
+                  now,
+                  submittedAt.getTime() + resolutionDaysFor(cell.category) * 24 * 60 * 60 * 1000,
+                ),
+              )
             : null,
       });
 
@@ -362,6 +465,68 @@ async function main() {
   await flush();
 
   console.log(`[demand] wrote ${written.toLocaleString()} synthetic complaints`);
+
+  // --- Citizen feedback on resolved complaints ----------------------------
+  // A second pass, because createMany does not return generated ids and the
+  // alternative — minting our own cuids — would mean reimplementing Prisma's id
+  // generation for no benefit. Selecting the resolved rows back is cheap.
+  //
+  // Without this the Feedback Analytics screen aggregates over a handful of rows
+  // while the rest of the system reports on 150,000, which reads as a bug even
+  // though the arithmetic is right.
+  const resolved = await prisma.complaint.findMany({
+    where: { isSynthetic: true, status: Status.Resolved, resolvedAt: { not: null } },
+    select: { id: true, submittedAt: true, resolvedAt: true },
+  });
+  console.log(`[demand] ${resolved.length.toLocaleString()} resolved complaints eligible for feedback`);
+
+  type FeedbackRow = {
+    complaintId: string;
+    citizenId: string;
+    rating: number;
+    comment: string | null;
+    createdAt: Date;
+  };
+
+  let feedbackBuffer: FeedbackRow[] = [];
+  let feedbackWritten = 0;
+
+  async function flushFeedback() {
+    if (feedbackBuffer.length === 0) return;
+    // skipDuplicates guards the unique constraint on complaintId, so a partial
+    // previous run cannot make this throw.
+    await prisma.feedback.createMany({ data: feedbackBuffer, skipDuplicates: true });
+    feedbackWritten += feedbackBuffer.length;
+    feedbackBuffer = [];
+  }
+
+  for (const row of resolved) {
+    if (rand() > FEEDBACK_RESPONSE_RATE) continue;
+    if (!row.resolvedAt) continue;
+
+    const daysToResolve = Math.max(
+      0,
+      (row.resolvedAt.getTime() - row.submittedAt.getTime()) / (24 * 60 * 60 * 1000),
+    );
+    const rating = ratingFor(daysToResolve);
+
+    feedbackBuffer.push({
+      complaintId: row.id,
+      citizenId: author.id,
+      rating,
+      comment: rand() < FEEDBACK_COMMENT_RATE ? commentFor(rating) : null,
+      // Rated within a few days of closure, never before it.
+      createdAt: new Date(row.resolvedAt.getTime() + rand() * 3 * 24 * 60 * 60 * 1000),
+    });
+
+    if (feedbackBuffer.length >= BATCH) await flushFeedback();
+  }
+  await flushFeedback();
+
+  console.log(
+    `[demand] wrote ${feedbackWritten.toLocaleString()} feedback ratings ` +
+      `(${((feedbackWritten / Math.max(1, resolved.length)) * 100).toFixed(0)}% of resolved)`,
+  );
 }
 
 main()

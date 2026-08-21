@@ -105,6 +105,34 @@ It shapes modelled volume only and has no effect on scoring. Values live in
 `src/services/planning/categories.ts` alongside the category-to-metric mapping,
 so the generator and the prioritisation engine cannot drift apart.
 
+### Citizen feedback
+
+Resolved complaints also receive ratings, at a 32% response rate — a minority, as
+in any real grievance system. Ratings are driven by turnaround rather than drawn at
+random, because satisfaction tracking resolution speed is the most robust finding
+in public-service feedback and it gives the analytics a signal worth reading.
+
+Turnaround itself is modelled per category, reflecting the real shape of the work:
+
+| Category | Typical days | Observed mean | Mean rating |
+| --- | --- | --- | --- |
+| Electricity | 5 | 6.5 | 3.75 |
+| Street Lights | 6 | 7.6 | 3.60 |
+| Waste Management | 7 | 8.8 | 3.50 |
+| Water Supply | 9 | 11.2 | 3.40 |
+| Sanitation | 14 | 17.3 | 3.03 |
+| Drainage | 18 | 21.6 | 2.84 |
+| Public Health | 21 | 25.2 | 2.64 |
+| Roads & Infrastructure | 32 | 36.5 | 2.41 |
+
+Correlation between category mean turnaround and category mean rating: **-0.979**.
+
+An earlier version picked the resolution date uniformly between submission and
+today. That gave a mean turnaround near three months and, being independent of
+category, put every category's satisfaction score within 0.1 of every other — the
+by-category panel was populated and analytically worthless. Swapping a streetlight
+bulb and resurfacing a road are not the same job, and the data now says so.
+
 ### Verification
 
 Correlation between real Census `no_tapwater_pct` and modelled water-complaint
