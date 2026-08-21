@@ -87,6 +87,7 @@
     "@testing-library/react": "16.0.1",
     "@testing-library/user-event": "14.5.2",
     "@types/google.maps": "^3.65.2",
+    "@types/react-dom": "18.3.1",
     "@vitejs/plugin-react": "4.7.0",
     "@vitest/ui": "2.1.8",
     "concurrently": "9.1.0",

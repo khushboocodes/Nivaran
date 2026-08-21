@@ -11,11 +11,27 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
+    // Vite's ambient types, which declare `import.meta.env`. Without these,
+    // telemetry.ts fails to compile on a Vite feature the app genuinely uses.
+    "types": ["vite/client"],
+    // main.tsx imports "./app/App.tsx" with its extension, which Vite resolves
+    // happily but tsc rejects unless this is enabled.
+    "allowImportingTsExtensions": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
       "@nivaran/shared": ["shared/src/index.ts"]
     }
   },
-  "include": ["src/**/*", "shared/src/**/*"]
+  "include": ["src/**/*", "shared/src/**/*"],
+  // src/imports is a dump of design screenshots and pasted specification text
+  // from the original Figma export. Nothing in the application imports from it,
+  // but it contains a stray .tsx file carrying literal merge conflict markers.
+  //
+  // Those are *syntax* errors, and they were aborting the type checker before it
+  // finished checking real files — which silently masked a genuine bug: a call to
+  // a function that had been deleted, caught only when the page crashed in the
+  // browser. A typecheck that cannot be trusted is worse than none, so the folder
+  // is excluded and `tsc --noEmit` is meaningful again.
+  "exclude": ["src/imports/**/*"]
 }

@@ -174,12 +174,16 @@ export default function AdminAnalytics() {
             </div>
             {hasCategories ? (
               <div className="h-52 overflow-auto space-y-2 pr-1">
-                {Object.entries(getCategoryStats()).map(([cat, count]) => (
-                  <div key={cat} className="flex items-center justify-between text-sm">
-                    <span className="text-[#0F172A]">{cat}</span>
-                    <span className="font-semibold text-[#0F172A]">{count as number}</span>
-                  </div>
-                ))}
+                {Object.entries(categoryStats)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([cat, count]) => (
+                    <div key={cat} className="flex items-center justify-between text-sm">
+                      <span className="text-[#0F172A]">{cat}</span>
+                      <span className="font-semibold text-[#0F172A] tabular-nums">
+                        {count.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  ))}
               </div>
             ) : (
               <div className="h-52 flex items-center justify-center">
