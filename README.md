@@ -96,6 +96,47 @@ Officers are department-scoped — they only see complaints assigned to their de
 
 ## Features
 
+### National demand intelligence (`/admin/planning`)
+
+The planning layer aggregates citizen demand to district level and ranks where
+infrastructure investment is most warranted.
+
+- **640 districts, real data.** Census of India 2011 district tables ingested into
+  ten deprivation indicators — water, electricity, sanitation, open defecation,
+  internet, housing condition, literacy, SC/ST share, rurality — all oriented so
+  higher always means worse.
+- **Deterministic scoring.** A composite of demand intensity (complaints per
+  100,000 households), measured infrastructure gap, investment deficit, and
+  equity. Computed arithmetically in SQL, unit-tested, and reproducible: the same
+  inputs always produce the same ranking.
+- **Adjustable weighting.** The four components are exposed as sliders, because
+  the weighting is a policy judgement rather than a fact. Changing it visibly
+  reorders the ranking.
+- **Grounded Gemini briefings.** Gemini receives the finished table and writes the
+  rationale, proposed interventions, and risks. It never produces a number: the
+  response schema has no numeric fields, every row stores a SHA-256 of the exact
+  figures the model saw, and the generated prose is scanned for numerals that were
+  not supplied. Exportable as a PDF with a provenance footer.
+- **Honest about gaps.** Proxy measures are labelled wherever they appear.
+  Unavailable components render as "no data", never as zero, and their weight is
+  redistributed rather than silently deflating every score.
+
+Validation worth noting: the top-ranked districts come out as the north Bihar
+belt plus Nabarangapur, Malkangiri, Simdega, Khunti and Shrawasti. Several are
+NITI Aayog Aspirational Districts, which the system was never told about.
+
+### Voice-first intake
+
+- Record a complaint in any Indian language. One Gemini call transcribes it in the
+  language spoken, identifies that language, translates to English, and classifies
+  it.
+- The **original-language transcript is stored alongside the translation**, so an
+  officer can check the translation rather than trust it.
+- Recordings are converted to 16 kHz mono WAV in the browser before upload, since
+  `MediaRecorder` produces webm and webm is not a documented Gemini audio format.
+- Needs no Google Cloud billing — only the AI Studio key. Falls back to manual
+  entry on any failure.
+
 ### Citizen portal
 - Sign up, login, password reset, profile, password change
 - File a complaint with title, description, category, language (11 languages: EN, HI, TA, TE, KN, ML, MR, BN, GU, PA, UR)
@@ -188,8 +229,50 @@ prisma:studio REM Visual DB browser at localhost:5555
 db:seed REM Insert demo users + departments
 db:reset REM Drop and re-create the database (destructive — run npm run db:backup first)
 backfill:ai REM Re-run AI classifier on every existing complaint
+ingest:census REM Load Census 2011 district data (640 districts, 6,400 indicators)
+ingest:demand REM Generate the modelled district demand corpus
+planning:briefs REM Pre-generate Gemini policy briefings for the top-ranked districts
 build REM Compile TS to dist/
 start REM Run compiled server
+
+To bring the planning layer up from an empty database:
+
+```cmd
+npm --prefix server run db:seed
+npm --prefix server run ingest:census
+npm --prefix server run ingest:demand
+npm --prefix server run planning:briefs -- --limit 25
+```
+
+The census ingest downloads its source CSV on first run and caches it locally, so
+every run after the first works offline. See
+[server/prisma/ingest/README.md](server/prisma/ingest/README.md) for what each
+dataset contributes and how the modelled demand is weighted.
+
+**On the Gemini free tier**, `planning:briefs` will consume most of a day's quota
+(20 `generateContent` requests per day). Rows it cannot narrate are still written
+with correct scores and marked degraded, and the planning screen renders them
+without prose — so the ranking never depends on the model being available.
+
+## How the AI is wired
+
+Two distinct roles, deliberately separated:
+
+| | Scoring and ranking | Narrative |
+| --- | --- | --- |
+| Produced by | SQL and arithmetic over database rows | Gemini 2.5 Flash |
+| Reproducible | Yes — pure function, unit-tested | No |
+| Can emit numbers | Yes, it computes them | **No, by construction** |
+| On failure | n/a | Row persists with scores, marked degraded |
+
+Gemini also handles complaint classification (with a hand-written heuristic
+classifier as an offline fallback), the citizen chat assistant, and voice
+transcription. Nothing in the grievance workflow blocks on it.
+
+## Demo
+
+[docs/DEMO.md](docs/DEMO.md) is a three-minute walkthrough, including what to
+check beforehand and what to say if the Gemini quota is exhausted mid-demo.
 
 ## Cost reality
 

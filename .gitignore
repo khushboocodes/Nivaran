@@ -57,9 +57,11 @@ backups/
 .kiro/
 guidelines/
 PROJECT_NOTES.md
-DEPLOYMENT.md
 # ATTRIBUTIONS.md is deliberately NOT ignored: the hackathon rules require
 # third-party code and dataset citations to be publicly visible in the repo.
+# DEPLOYMENT.md is likewise tracked: a deployment guide nobody can read does
+# not demonstrate that the project is deployable. It contains only placeholder
+# connection strings, no real credentials.
 
 # --- Ingested public datasets -----------------------------------------------
 # Source CSVs are fetched on first ingest rather than committed. The Census
