@@ -13,74 +13,100 @@ import {
   TableHeader,
   TableRow,
 } from '../../components/ui/table';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../../../lib/api/client';
 import { useComplaints } from '../../contexts/ComplaintContext';
-import { useScopedComplaints } from '../../contexts/DepartmentScopeContext';
+
+/**
+ * Server-computed aggregate shape from `GET /api/complaints/stats`.
+ * Role- and department-scoped by the API, so the client never filters totals.
+ */
+interface ComplaintStats {
+  total: number;
+  pending: number;
+  resolved: number;
+  escalated: number;
+  resolutionRate: number;
+  byStatus: Record<string, number>;
+  byCategory: Record<string, number>;
+  byPriority: Record<string, number>;
+  daily: { date: string; count: number }[];
+  aiConfidence: { average: number | null; classified: number };
+  /** How much of the corpus is modelled rather than real citizen reporting. */
+  dataset: { real: number; modelled: number };
+  windowDays: number;
+}
+import { useScopedComplaints, useDepartmentScope } from '../../contexts/DepartmentScopeContext';
 import { getStatusColor, getPriorityColor } from '../../../lib/badge-colors';
 import { format, subDays } from 'date-fns';
 
 export default function AdminDashboard() {
   const { complaints: allComplaints, getStats, getCategoryStats, getPriorityStats } = useComplaints();
+  // The complaint list is still used for the "recent complaints" table, which is
+  // genuinely a page of rows. Everything numeric now comes from the server.
   const complaints = useScopedComplaints(allComplaints);
+  const { scope } = useDepartmentScope();
 
-  // Aggregate stats need to respect the scope too — recompute locally so
-  // they don't fall back to the full unscoped list.
-  const stats = useMemo(
-    () => ({
-      total: complaints.length,
-      pending: complaints.filter(
-        (c) => c.status === 'Submitted' || c.status === 'Under Review',
-      ).length,
-      resolved: complaints.filter((c) => c.status === 'Resolved').length,
-      escalated: complaints.filter((c) => c.priority === 'Critical').length,
-    }),
-    [complaints],
-  );
-  const categoryStats = useMemo(
-    () =>
-      complaints.reduce<Record<string, number>>((acc, c) => {
-        acc[c.category] = (acc[c.category] ?? 0) + 1;
-        return acc;
-      }, {}),
-    [complaints],
-  );
-  const priorityStats = useMemo(
-    () =>
-      complaints.reduce<Record<string, number>>((acc, c) => {
-        acc[c.priority] = (acc[c.priority] ?? 0) + 1;
-        return acc;
-      }, {}),
-    [complaints],
-  );
+  /**
+   * Aggregates over the whole visible dataset, computed in Postgres.
+   *
+   * These used to be derived from `complaints.length`, i.e. from whatever page
+   * the client happened to be holding — 25 rows by default. With ~150,000
+   * complaints in the database the dashboard reported "Total: 25", which was
+   * arithmetically correct for the cache and completely wrong about the system.
+   * Counting belongs in the database.
+   */
+  const statsQuery = useQuery<ComplaintStats>({
+    queryKey: ['complaints', 'stats', scope],
+    queryFn: () =>
+      apiClient.get<ComplaintStats>('/complaints/stats', {
+        query: { days: 14, ...(scope !== 'all' ? { dept: scope } : {}) },
+      }),
+  });
+
+  const server = statsQuery.data;
+
+  const stats = {
+    total: server?.total ?? 0,
+    pending: server?.pending ?? 0,
+    resolved: server?.resolved ?? 0,
+    escalated: server?.escalated ?? 0,
+  };
+  const categoryStats = server?.byCategory ?? {};
+  const priorityStats = server?.byPriority ?? {};
+
   // Silence unused-var linting for the destructured helpers — we keep the
   // import shape stable so the context API stays a single hook.
   void getStats;
   void getCategoryStats;
   void getPriorityStats;
 
-  const resolutionRate =
-    stats.total > 0 ? Math.round((stats.resolved / stats.total) * 100) : 0;
+  const resolutionRate = Math.round((server?.resolutionRate ?? 0) * 100);
   const criticalCount = priorityStats['Critical'] ?? 0;
 
-  // Last 14 days of submission counts. Build day-by-day starting 13 days ago
-  // so the array is already ascending by date, matching the chart's natural
-  // left-to-right reading order.
+  /**
+   * Last 14 days of submission volume.
+   *
+   * The server returns only days that have complaints, so we lay those onto a
+   * complete 14-day axis. Without that, a quiet day would be omitted entirely
+   * and the chart would silently compress the timeline rather than showing a
+   * gap.
+   */
   const volumeData = useMemo(() => {
+    const byDay = new Map<string, number>();
+    for (const row of server?.daily ?? []) {
+      byDay.set(format(new Date(row.date), 'yyyy-MM-dd'), row.count);
+    }
     const today = new Date();
     return Array.from({ length: 14 }, (_, i) => {
       const day = subDays(today, 13 - i);
-      const dayStart = new Date(
-        day.getFullYear(),
-        day.getMonth(),
-        day.getDate(),
-      ).getTime();
-      const dayEnd = dayStart + 24 * 60 * 60 * 1000;
-      const value = complaints.filter((c) => {
-        const t = c.submittedAt.getTime();
-        return t >= dayStart && t < dayEnd;
-      }).length;
-      return { id: i + 1, date: format(day, 'MMM d'), value };
+      return {
+        id: i + 1,
+        date: format(day, 'MMM d'),
+        value: byDay.get(format(day, 'yyyy-MM-dd')) ?? 0,
+      };
     });
-  }, [complaints]);
+  }, [server?.daily]);
 
   const recentComplaints = useMemo(
     () =>
@@ -91,7 +117,7 @@ export default function AdminDashboard() {
   );
 
   const priorityTotal = Object.values(priorityStats).reduce((a, b) => a + b, 0);
-  const categoryEntries = Object.entries(categoryStats);
+  const categoryEntries = Object.entries(categoryStats).sort((a, b) => b[1] - a[1]);
 
   return (
     <AdminLayout>
@@ -100,7 +126,29 @@ export default function AdminDashboard() {
         <div className="flex items-center justify-between mb-5">
           <div>
             <h1 className="text-2xl font-bold text-[#0F172A] mb-0.5">Overview</h1>
-            <p className="text-sm text-[#7C8AA5]">AI Governance Intelligence • May 8, 2026</p>
+            {/* Corpus size stated up front, with the modelled share disclosed
+                rather than left for a reader to assume it is all real reporting.
+                The date was previously hardcoded. */}
+            <p className="text-sm text-[#7C8AA5]">
+              {statsQuery.isLoading ? (
+                'Loading aggregates…'
+              ) : (
+                <>
+                  Analysing{' '}
+                  <span className="font-semibold text-[#0F172A]">
+                    {stats.total.toLocaleString('en-IN')}
+                  </span>{' '}
+                  complaints
+                  {server && server.dataset.modelled > 0 && (
+                    <>
+                      {' '}— {server.dataset.real.toLocaleString('en-IN')} filed by citizens,{' '}
+                      {server.dataset.modelled.toLocaleString('en-IN')} modelled
+                    </>
+                  )}
+                  {' '}• {format(new Date(), 'd MMM yyyy')}
+                </>
+              )}
+            </p>
           </div>
           <div className="flex gap-2.5">
             <Button variant="outline" className="border-[#E5EAF3] h-9 px-4 rounded-[14px] text-sm hover:border-[#2F5BFF] hover:text-[#2F5BFF] transition-all">

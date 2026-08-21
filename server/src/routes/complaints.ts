@@ -14,6 +14,7 @@ import {
   priorityFromWire,
   serializeComplaint,
   statusFromWire,
+  statusToWire,
 } from '../serializers/complaint';
 import { sendComplaintEvent } from '../services/email';
 import { sendSms } from '../services/sms';
@@ -169,6 +170,162 @@ complaints.get('/', async (c) => {
     page,
     pageSize,
     total,
+  });
+});
+
+/**
+ * Aggregate statistics over the caller's whole visible dataset.
+ *
+ *   GET /api/complaints/stats?dept=<id>&days=14
+ *
+ * WHY THIS EXISTS
+ * ---------------
+ * The dashboards used to derive their tiles and charts from the complaint list
+ * already in the client cache. That list is a single page — 25 rows by default —
+ * so an admin looking at ~150,000 complaints saw "Total: 25". The numbers were
+ * arithmetically correct for the data in the cache and completely wrong about the
+ * system.
+ *
+ * Counting happens in Postgres, where it belongs. The client renders what it is
+ * given and no longer computes totals from a page it happens to hold.
+ *
+ * Registered before `GET /:id` on purpose: Hono matches in order, so a later
+ * registration would let `:id` swallow "stats".
+ */
+complaints.get('/stats', async (c) => {
+  const user = getUser(c);
+  if (!user) return c.json({ code: 'unauthenticated' }, 401);
+
+  const url = new URL(c.req.url);
+  const deptParam = url.searchParams.get('dept') ?? undefined;
+  const daysRaw = Number(url.searchParams.get('days'));
+  const days = Number.isFinite(daysRaw) && daysRaw > 0 ? Math.min(Math.round(daysRaw), 365) : 14;
+
+  // Resolve visibility once, as plain values, so the same scope drives both the
+  // Prisma aggregates and the raw daily-series query.
+  let citizenId: string | undefined;
+  let departmentId: string | undefined = deptParam;
+  let impossible = false;
+
+  if (user.role === 'citizen') {
+    citizenId = user.id;
+  } else if (user.role === 'officer') {
+    const officer = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { departmentId: true },
+    });
+    if (!officer?.departmentId) {
+      // An officer with no department sees nothing, matching scopedWhere.
+      impossible = true;
+    } else {
+      // An officer cannot widen their own scope via ?dept=.
+      departmentId = officer.departmentId;
+    }
+  }
+
+  if (impossible) {
+    return c.json({
+      total: 0,
+      pending: 0,
+      resolved: 0,
+      escalated: 0,
+      byStatus: {},
+      byCategory: {},
+      byPriority: {},
+      daily: [],
+      aiConfidence: { average: null, classified: 0 },
+      dataset: { real: 0, modelled: 0 },
+      windowDays: days,
+    });
+  }
+
+  const where: Prisma.ComplaintWhereInput = {
+    ...(citizenId ? { citizenId } : {}),
+    ...(departmentId ? { departmentId } : {}),
+  };
+
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const [
+    total,
+    resolved,
+    pending,
+    escalated,
+    byStatusRows,
+    byCategoryRows,
+    byPriorityRows,
+    confidence,
+    modelled,
+  ] = await Promise.all([
+    prisma.complaint.count({ where }),
+    prisma.complaint.count({ where: { ...where, status: 'Resolved' } }),
+    prisma.complaint.count({ where: { ...where, status: { in: ['Submitted', 'UnderReview'] } } }),
+    prisma.complaint.count({ where: { ...where, priority: 'Critical' } }),
+    prisma.complaint.groupBy({ by: ['status'], where, _count: { _all: true }, orderBy: { status: 'asc' } }),
+    prisma.complaint.groupBy({ by: ['category'], where, _count: { _all: true }, orderBy: { category: 'asc' } }),
+    prisma.complaint.groupBy({ by: ['priority'], where, _count: { _all: true }, orderBy: { priority: 'asc' } }),
+    // Average only over rows a classifier actually scored. Modelled demand rows
+    // carry 0 by design, and including them would drag the figure toward zero
+    // and misreport classifier accuracy.
+    prisma.complaint.aggregate({
+      where: { ...where, aiConfidence: { gt: 0 } },
+      _avg: { aiConfidence: true },
+      _count: { _all: true },
+    }),
+    prisma.complaint.count({ where: { ...where, isSynthetic: true } }),
+  ]);
+
+  // Daily volume. Raw SQL because date_trunc has no Prisma equivalent and
+  // grouping by a raw timestamp would produce one bucket per complaint.
+  // Conditions are assembled as parameterised fragments, never string-concatenated.
+  const conds: Prisma.Sql[] = [Prisma.sql`submitted_at >= ${cutoff}`];
+  if (citizenId) conds.push(Prisma.sql`citizen_id = ${citizenId}`);
+  if (departmentId) conds.push(Prisma.sql`department_id = ${departmentId}`);
+
+  const dailyRows = await prisma.$queryRaw<{ day: Date; n: bigint }[]>(
+    Prisma.sql`
+      SELECT date_trunc('day', submitted_at) AS day, count(*) AS n
+      FROM complaints
+      WHERE ${Prisma.join(conds, ' AND ')}
+      GROUP BY 1
+      ORDER BY 1 ASC
+    `,
+  );
+
+  /** Fold groupBy output into a plain record, converting Prisma enums to wire form. */
+  const fold = <K extends string>(
+    rows: { _count: { _all: number } }[],
+    key: (row: never) => K,
+  ): Record<string, number> => {
+    const out: Record<string, number> = {};
+    for (const row of rows) out[key(row as never)] = row._count._all;
+    return out;
+  };
+
+  return c.json({
+    total,
+    pending,
+    resolved,
+    escalated,
+    resolutionRate: total > 0 ? resolved / total : 0,
+    byStatus: fold(byStatusRows, (r: { status: Prisma.ComplaintGroupByOutputType['status'] }) =>
+      statusToWire(r.status),
+    ),
+    byCategory: fold(byCategoryRows, (r: { category: string }) => r.category),
+    byPriority: fold(byPriorityRows, (r: { priority: string }) => String(r.priority)),
+    // Postgres count() is bigint; JSON cannot carry BigInt, so narrow to number.
+    daily: dailyRows.map((r) => ({
+      date: r.day instanceof Date ? r.day.toISOString() : String(r.day),
+      count: Number(r.n),
+    })),
+    aiConfidence: {
+      average: confidence._avg.aiConfidence ?? null,
+      classified: confidence._count._all,
+    },
+    // Surfaced so the UI can state how much of the corpus is modelled rather
+    // than leaving a reader to assume it is all real citizen reporting.
+    dataset: { real: total - modelled, modelled },
+    windowDays: days,
   });
 });
 

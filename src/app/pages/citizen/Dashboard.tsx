@@ -6,13 +6,45 @@ import { FileText, Clock, CheckCircle2, AlertTriangle, Plus, Search, Bot, Bell, 
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../../../lib/api/client';
 import { useComplaints } from '../../contexts/ComplaintContext';
 import { differenceInDays, formatDistanceToNow } from 'date-fns';
+
+/**
+ * Server-computed aggregates from `GET /api/complaints/stats`, scoped by the API
+ * to this citizen's own complaints.
+ */
+interface CitizenStats {
+  total: number;
+  pending: number;
+  resolved: number;
+  escalated: number;
+  resolutionRate: number;
+  byCategory: Record<string, number>;
+  aiConfidence: { average: number | null; classified: number };
+}
 
 export default function Dashboard() {
   const { t } = useTranslation(['citizen', 'common', 'status']);
   const { complaints, getStats, getCategoryStats } = useComplaints();
-  const stats = getStats();
+  const cachedStats = getStats();
+
+  const statsQuery = useQuery<CitizenStats>({
+    queryKey: ['complaints', 'stats', 'citizen'],
+    queryFn: () => apiClient.get<CitizenStats>('/complaints/stats'),
+  });
+  const serverStats = statsQuery.data;
+
+  // Prefer server aggregates; fall back to the cached page only while loading.
+  const stats = serverStats
+    ? {
+        total: serverStats.total,
+        pending: serverStats.pending,
+        resolved: serverStats.resolved,
+        escalated: serverStats.escalated,
+      }
+    : cachedStats;
 
   const recentComplaints = complaints.slice(0, 5);
 
@@ -21,16 +53,34 @@ export default function Dashboard() {
   // hard-coded placeholders. Falls back to dashes when there's no data.
   // ---------------------------------------------------------------------
   const insights = useMemo(() => {
-    const total = complaints.length;
+    // Totals come from the server, scoped to this citizen, rather than from the
+    // cached complaint page. Deriving them from the cache meant the tiles
+    // reported on whatever happened to be loaded — and a stale page from another
+    // role's session could make them describe complaints that were not the
+    // citizen's at all. `serverStats` is undefined only while loading.
+    const total = serverStats?.total ?? complaints.length;
+    const resolvedCount = serverStats?.resolved ?? complaints.filter((c) => c.status === 'Resolved').length;
     const resolved = complaints.filter((c) => c.status === 'Resolved');
-    const resolutionRatePct = total > 0 ? Math.round((resolved.length / total) * 100) : null;
+    const resolutionRatePct =
+      serverStats != null
+        ? serverStats.total > 0
+          ? Math.round(serverStats.resolutionRate * 100)
+          : null
+        : total > 0
+          ? Math.round((resolved.length / total) * 100)
+          : null;
 
-    const classified = complaints.filter((c) => (c.aiConfidence ?? 0) > 0);
-    const avgConfidence = classified.length > 0
-      ? classified.reduce((acc, c) => acc + (c.aiConfidence ?? 0), 0) / classified.length
-      : null;
+    // The wire value is 0..1; this UI renders a percentage. Averaged server-side
+    // over only those complaints a classifier actually scored, so modelled rows
+    // with a zero confidence cannot drag the figure down.
+    const avgConfidence =
+      serverStats != null
+        ? serverStats.aiConfidence.average != null
+          ? serverStats.aiConfidence.average * 100
+          : null
+        : null;
 
-    const categoryStats = getCategoryStats();
+    const categoryStats = serverStats?.byCategory ?? getCategoryStats();
     const topCategoryEntry = Object.entries(categoryStats).sort(
       (a, b) => b[1] - a[1],
     )[0];
@@ -55,7 +105,7 @@ export default function Dashboard() {
         }),
       );
     }
-    if (resolutionRatePct !== null && resolved.length > 0) {
+    if (resolutionRatePct !== null && resolvedCount > 0) {
       tips.push(
         t('citizen:dashboard.insights.tipResolutionRate', { pct: resolutionRatePct }),
       );
@@ -89,7 +139,9 @@ export default function Dashboard() {
       avgConfidence,
       tips,
     };
-  }, [complaints, getCategoryStats, stats.escalated, t]);
+    // `serverStats` is in the dependency list so the tiles recompute the moment
+    // the aggregate query resolves, rather than staying on the fallback values.
+  }, [complaints, getCategoryStats, stats.escalated, serverStats, t]);
 
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
