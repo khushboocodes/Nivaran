@@ -15,7 +15,8 @@
     "db:seed": "prisma db seed",
     "backfill:ai": "tsx prisma/backfill-ai.ts",
     "ingest:census": "tsx prisma/ingest/census2011.ts",
-    "ingest:demand": "tsx prisma/ingest/synthesize-demand.ts"
+    "ingest:demand": "tsx prisma/ingest/synthesize-demand.ts",
+    "planning:briefs": "tsx scripts/generate-briefs.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

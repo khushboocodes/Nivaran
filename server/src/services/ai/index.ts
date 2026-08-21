@@ -475,7 +475,11 @@ const GEMINI_CLASSIFY_PROMPT = [
   'All field values except the detected language stay in English. The summary must always be in English regardless of the complaint language.',
 ].join('\n');
 
-function geminiUrl(model: string, apiKey: string, stream = false): string {
+/**
+ * Exported so the planning briefing service can reuse the same endpoint
+ * construction rather than duplicating the URL shape.
+ */
+export function geminiUrl(model: string, apiKey: string, stream = false): string {
   const action = stream ? 'streamGenerateContent' : 'generateContent';
   const alt = stream ? '&alt=sse' : '';
   return `https://generativelanguage.googleapis.com/v1beta/models/${model}:${action}?key=${apiKey}${alt}`;
