@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, BarChart3, Map, AlertTriangle, FileBarChart, Star, Settings, LogOut, ChevronDown, Users, Menu, X } from 'lucide-react';
+import { LayoutDashboard, FileText, BarChart3, Map, AlertTriangle, FileBarChart, Star, Settings, LogOut, ChevronDown, Users, Menu, X, Compass } from 'lucide-react';
 import { useAuth } from '../../auth/AuthProvider';
 import {
   DepartmentScopeProvider,
@@ -78,6 +78,9 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
   // so we hide its sidebar entry from officers to keep their nav clean.
   // Admins still see it (and it's the only way to invite new staff).
   const insightsNav = [
+    // Sits above Reports because it is the national-planning surface, whereas
+    // everything below it reports on the grievance workflow.
+    { icon: Compass, label: 'Planning', path: '/admin/planning' },
     { icon: FileBarChart, label: 'Reports', path: '/admin/reports' },
     { icon: Star, label: 'Feedback', path: '/admin/feedback' },
     ...(user?.role === 'admin'

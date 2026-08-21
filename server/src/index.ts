@@ -11,6 +11,7 @@ import users from './routes/users';
 import feedback from './routes/feedback';
 import settings from './routes/settings';
 import reports from './routes/reports';
+import planning from './routes/planning';
 import { sessionMiddleware } from './auth/middleware';
 import { startSlaScheduler } from './services/sla';
 
@@ -51,6 +52,7 @@ app.route('/api/ai', ai);
 app.route('/api/feedback', feedback);
 app.route('/api/settings', settings);
 app.route('/api/reports', reports);
+app.route('/api/planning', planning);
 
 const port = Number(process.env.PORT ?? 3001);
 

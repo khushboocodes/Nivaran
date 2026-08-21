@@ -30,6 +30,7 @@ import AdminAnalytics from './pages/admin/Analytics';
 import AdminHeatmap from './pages/admin/Heatmap';
 import AdminEscalation from './pages/admin/Escalation';
 import AdminReports from './pages/admin/Reports';
+import AdminPlanning from './pages/admin/Planning';
 import AdminFeedback from './pages/admin/Feedback';
 import AdminSettings from './pages/admin/Settings';
 import AdminAudit from './pages/admin/Audit';
@@ -71,6 +72,7 @@ export default function App() {
         <Route path="/admin/heatmap" element={<RequireRole roles={['admin', 'officer']} redirectTo="/admin/login"><AdminHeatmap /></RequireRole>} />
         <Route path="/admin/escalation" element={<RequireRole roles={['admin', 'officer']} redirectTo="/admin/login"><AdminEscalation /></RequireRole>} />
         <Route path="/admin/reports" element={<RequireRole roles={['admin', 'officer']} redirectTo="/admin/login"><AdminReports /></RequireRole>} />
+        <Route path="/admin/planning" element={<RequireRole roles={['admin', 'officer']} redirectTo="/admin/login"><AdminPlanning /></RequireRole>} />
         <Route path="/admin/feedback" element={<RequireRole roles={['admin', 'officer']} redirectTo="/admin/login"><AdminFeedback /></RequireRole>} />
         <Route path="/admin/settings" element={<RequireRole roles={['admin', 'officer']} redirectTo="/admin/login"><AdminSettings /></RequireRole>} />
         <Route path="/admin/audit" element={<RequireRole roles={['admin', 'officer']} redirectTo="/admin/login"><AdminAudit /></RequireRole>} />
