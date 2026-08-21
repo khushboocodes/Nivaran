@@ -14,6 +14,7 @@ import { uploadComplaintAttachment } from '../../../lib/api/uploads';
 import type { AttachmentKind } from '@nivaran/shared';
 import { track } from '../../../lib/telemetry';
 import { useTranslation } from 'react-i18next';
+import { toMonoWav16k, blobToBase64 } from '../../../lib/audio/toWav';
 
 interface AIAnalysis {
   category: string;
@@ -40,6 +41,20 @@ export default function SubmitComplaint() {
 
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // Voice intake. The recording is held so it can be transcribed on demand
+  // rather than automatically: a citizen may want to attach audio as evidence
+  // without having the form rewritten underneath them.
+  const lastRecordingRef = useRef<Blob | null>(null);
+  const [hasRecording, setHasRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [voiceResult, setVoiceResult] = useState<{
+    transcript: string;
+    detectedLanguage: string;
+    englishText: string;
+    modelName: string;
+  } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -136,6 +151,11 @@ export default function SubmitComplaint() {
         const ext = (blob.type.split('/')[1] ?? 'webm').split(';')[0];
         const file = new File([blob], `recording-${Date.now()}.${ext}`, { type: blob.type });
         stageFile('audio', file);
+        // Keep the raw blob so it can be transcribed. The staged File is for
+        // upload as evidence; this is for the speech pipeline.
+        lastRecordingRef.current = blob;
+        setHasRecording(true);
+        setVoiceError(null);
         recordStreamRef.current?.getTracks().forEach((t) => t.stop());
         recordStreamRef.current = null;
       };
@@ -163,6 +183,86 @@ export default function SubmitComplaint() {
   const toggleRecording = () => {
     if (isRecording) stopRecording();
     else void startRecording();
+  };
+
+  /**
+   * Transcribe the recording and fill the form from it.
+   *
+   * The recording is converted to 16 kHz mono WAV first. MediaRecorder produces
+   * webm in Chrome and mp4 in Safari, and webm is not on Google's documented
+   * list of accepted audio formats — converting removes that uncertainty rather
+   * than discovering it in front of the user. See lib/audio/toWav.
+   */
+  const transcribeRecording = async () => {
+    const blob = lastRecordingRef.current;
+    if (!blob) return;
+
+    setIsTranscribing(true);
+    setVoiceError(null);
+    try {
+      const { blob: wav } = await toMonoWav16k(blob);
+      const audioBase64 = await blobToBase64(wav);
+
+      const res = await apiClient.post<{
+        transcript: string;
+        detectedLanguage: string;
+        englishText: string;
+        title: string;
+        description: string;
+        category: string;
+        priority: 'Low' | 'Medium' | 'High' | 'Critical';
+        sentiment: 'Positive' | 'Neutral' | 'Negative' | 'Highly Negative';
+        speechDetected: boolean;
+        modelName: string;
+      }>('/ai/voice', { audioBase64, mimeType: 'audio/wav' });
+
+      if (!res.speechDetected) {
+        setVoiceError(
+          'No clear speech was found in that recording. Try again somewhere quieter, or type the complaint.',
+        );
+        return;
+      }
+
+      // Fill the form, but leave what the citizen already typed alone: an
+      // accidental transcription must not destroy their own words.
+      setFormData((prev) => ({
+        ...prev,
+        title: prev.title.trim() ? prev.title : res.title,
+        description: prev.description.trim() ? prev.description : res.description,
+        category: prev.category || res.category,
+        language: res.detectedLanguage || prev.language,
+      }));
+
+      setVoiceResult({
+        transcript: res.transcript,
+        detectedLanguage: res.detectedLanguage,
+        englishText: res.englishText,
+        modelName: res.modelName,
+      });
+
+      // The same call already classified the complaint, so show it rather than
+      // making the citizen press "Analyze with AI" for information we have.
+      setAiAnalysis({
+        category: res.category,
+        department: '',
+        priority: res.priority,
+        sentiment: res.sentiment,
+        confidence: 0,
+        summary: res.englishText.slice(0, 240),
+      });
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.status === 502
+            ? 'The transcription service is unavailable right now. Please type the complaint instead.'
+            : err.status === 413
+              ? 'That recording is too long. Please record a shorter clip.'
+              : 'Could not transcribe the recording. Please type the complaint instead.'
+          : 'Could not read the recording in this browser. Please type the complaint instead.';
+      setVoiceError(message);
+    } finally {
+      setIsTranscribing(false);
+    }
   };
 
   const formatBytes = (n: number) => {
@@ -304,6 +404,14 @@ export default function SubmitComplaint() {
         estimatedResolution: '3-5 business days',
         ...(formData.lat !== undefined && formData.lng !== undefined
           ? { lat: formData.lat, lng: formData.lng }
+          : {}),
+        // Voice provenance travels with the complaint so the citizen's own words
+        // survive into the record rather than only the English translation.
+        ...(voiceResult
+          ? {
+              sourceTranscript: voiceResult.transcript,
+              sourceLanguage: voiceResult.detectedLanguage,
+            }
           : {}),
       } as Parameters<typeof addComplaint>[0]);
     } catch {
@@ -545,6 +653,70 @@ export default function SubmitComplaint() {
 
                   {recordError && (
                     <p className="text-xs text-[#EF4444] mt-2">{recordError}</p>
+                  )}
+
+                  {/* Voice intake. Offered rather than automatic: a citizen may
+                      want to attach audio purely as evidence without having the
+                      form rewritten underneath them. */}
+                  {hasRecording && !isRecording && (
+                    <div className="mt-3 rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Button
+                          type="button"
+                          onClick={() => void transcribeRecording()}
+                          disabled={isTranscribing}
+                          className="bg-[#0B1220] hover:bg-[#1D4ED8] text-white h-9"
+                        >
+                          {isTranscribing ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" strokeWidth={2} />
+                          ) : (
+                            <Sparkles className="w-4 h-4 mr-2" strokeWidth={2} />
+                          )}
+                          {isTranscribing ? 'Listening…' : 'Fill form from my recording'}
+                        </Button>
+                        <p className="text-xs text-[#6B7280]">
+                          Speak in any Indian language. It will be transcribed, translated, and
+                          categorised.
+                        </p>
+                      </div>
+
+                      {voiceError && <p className="text-xs text-[#EF4444] mt-2">{voiceError}</p>}
+
+                      {voiceResult && (
+                        <div className="mt-3 pt-3 border-t border-[#E5E7EB] space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-[#EEF2FF] text-[#3730A3] hover:bg-[#EEF2FF] text-[10px]">
+                              detected: {voiceResult.detectedLanguage}
+                            </Badge>
+                            <Badge className="bg-[#F1F5F9] text-[#475569] hover:bg-[#F1F5F9] text-[10px]">
+                              {voiceResult.modelName}
+                            </Badge>
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wide">
+                              What you said
+                            </p>
+                            <p className="text-sm text-[#0B1220] leading-relaxed">
+                              {voiceResult.transcript}
+                            </p>
+                          </div>
+                          {voiceResult.detectedLanguage !== 'en' && (
+                            <div>
+                              <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wide">
+                                English translation
+                              </p>
+                              <p className="text-sm text-[#334155] leading-relaxed">
+                                {voiceResult.englishText}
+                              </p>
+                            </div>
+                          )}
+                          <p className="text-[11px] text-[#94A3B8] leading-relaxed">
+                            Your original words are kept with the complaint, so staff can check the
+                            translation rather than rely on it.
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   {/* Hidden inputs powering the visible buttons. */}

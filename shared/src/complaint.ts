@@ -47,6 +47,12 @@ export const ComplaintCreateSchema = z.object({
   sentiment: SentimentSchema.optional(),
   aiConfidence: z.number().min(0).max(1).optional(),
   aiSummary: z.string().max(2_000).optional(),
+  // Voice intake. When a complaint is dictated rather than typed, the verbatim
+  // transcript in the language actually spoken is kept alongside the translated
+  // description. A citizen should be able to see their own words in the record,
+  // and an officer should be able to check the translation rather than trust it.
+  sourceTranscript: z.string().max(5_000).optional(),
+  sourceLanguage: z.string().min(2).max(10).optional(),
 });
 export type ComplaintCreateInput = z.infer<typeof ComplaintCreateSchema>;
 

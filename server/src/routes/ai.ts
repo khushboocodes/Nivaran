@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { getUser } from '../auth/middleware';
 import { aiService, chatStream } from '../services/ai';
+import { transcribeComplaintAudio, MAX_AUDIO_BYTES } from '../services/ai/voice';
 
 const ai = new Hono();
 
@@ -79,6 +80,72 @@ ai.post('/chat', async (c) => {
       'Access-Control-Allow-Credentials': 'true',
     },
   });
+});
+
+/**
+ * Voice complaint intake.
+ *
+ *   POST /api/ai/voice  { audioBase64, mimeType }
+ *
+ * One Gemini call transcribes the audio in the language spoken, identifies that
+ * language, translates to English, and classifies the complaint. The
+ * original-language transcript comes back alongside the translation so the
+ * citizen's own words stay in the record and an officer can check the
+ * translation rather than trust it.
+ *
+ * Base64 in a JSON body rather than multipart: the payload is small, it needs no
+ * extra parsing dependency, and the browser already holds the recording as a
+ * Blob.
+ */
+const VoiceBody = z.object({
+  // Roughly 4/3 of the raw byte cap, since base64 inflates by a third.
+  audioBase64: z.string().min(32).max(Math.ceil((MAX_AUDIO_BYTES * 4) / 3) + 1024),
+  mimeType: z.string().min(3).max(100),
+});
+
+ai.post('/voice', async (c) => {
+  const user = getUser(c);
+  if (!user) return c.json({ code: 'unauthenticated' }, 401);
+
+  const body = await c.req.json().catch(() => null);
+  const parsed = VoiceBody.safeParse(body);
+  if (!parsed.success) {
+    return c.json({ code: 'invalid_input', details: parsed.error.flatten() }, 400);
+  }
+
+  // Reject oversized audio explicitly rather than letting Gemini return an
+  // opaque error about total request size.
+  const approxBytes = Math.floor((parsed.data.audioBase64.length * 3) / 4);
+  if (approxBytes > MAX_AUDIO_BYTES) {
+    return c.json(
+      {
+        code: 'payload_too_large',
+        message: `Recording is about ${(approxBytes / 1024 / 1024).toFixed(1)} MB; the limit is ${MAX_AUDIO_BYTES / 1024 / 1024} MB. Please record a shorter clip.`,
+      },
+      413,
+    );
+  }
+
+  const outcome = await transcribeComplaintAudio({
+    base64: parsed.data.audioBase64,
+    mimeType: parsed.data.mimeType,
+  });
+
+  if (outcome.failed || !outcome.result) {
+    // 502: the request was fine, the upstream model could not complete it. The
+    // client falls back to manual entry rather than losing the submission.
+    return c.json(
+      {
+        code: 'transcription_failed',
+        message: 'Could not transcribe the recording. Please type the complaint instead.',
+        detail: outcome.error,
+        formatWarning: outcome.formatWarning,
+      },
+      502,
+    );
+  }
+
+  return c.json({ ...outcome.result, modelName: outcome.modelName, formatWarning: outcome.formatWarning });
 });
 
 export default ai;

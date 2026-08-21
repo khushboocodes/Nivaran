@@ -205,6 +205,14 @@ complaints.post('/', async (c) => {
           : {}),
         ...(parsed.data.aiConfidence !== undefined ? { aiConfidence: parsed.data.aiConfidence } : {}),
         ...(parsed.data.aiSummary !== undefined ? { aiSummary: parsed.data.aiSummary } : {}),
+        // Voice intake provenance: the original-language transcript is stored
+        // next to the translated description so the record stays auditable.
+        ...(parsed.data.sourceTranscript !== undefined
+          ? { sourceTranscript: parsed.data.sourceTranscript }
+          : {}),
+        ...(parsed.data.sourceLanguage !== undefined
+          ? { sourceLanguage: parsed.data.sourceLanguage }
+          : {}),
       },
       include: { department: { select: { name: true } } },
     });
