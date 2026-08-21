@@ -213,6 +213,7 @@ export default function SubmitComplaint() {
         priority: 'Low' | 'Medium' | 'High' | 'Critical';
         sentiment: 'Positive' | 'Neutral' | 'Negative' | 'Highly Negative';
         speechDetected: boolean;
+        confidence: number;
         modelName: string;
       }>('/ai/voice', { audioBase64, mimeType: 'audio/wav' });
 
@@ -247,7 +248,12 @@ export default function SubmitComplaint() {
         department: '',
         priority: res.priority,
         sentiment: res.sentiment,
-        confidence: 0,
+        // This UI carries confidence as an integer percentage; the wire value is
+        // 0..1. Same conversion the typed-complaint path does, so a dictated
+        // complaint counts toward the dashboard's AI-accuracy figure exactly like
+        // a typed one. Leaving it at 0 would have quietly excluded every voice
+        // submission from that statistic.
+        confidence: Math.round((res.confidence ?? 0) * 100),
         summary: res.englishText.slice(0, 240),
       });
     } catch (err) {

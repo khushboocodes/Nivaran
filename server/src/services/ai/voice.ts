@@ -63,6 +63,15 @@ export const VoiceResultSchema = z.object({
   sentiment: z.enum(['Positive', 'Neutral', 'Negative', 'Highly Negative']),
   /** Whether intelligible speech was found at all. */
   speechDetected: z.boolean(),
+  /**
+   * How confident the classification is, 0..1.
+   *
+   * Matches the text classifier's contract so a dictated complaint and a typed
+   * one are directly comparable. Without this the dashboard's AI-accuracy figure
+   * silently excludes every voice submission, which would make voice intake look
+   * like it never ran.
+   */
+  confidence: z.number().min(0).max(1),
 });
 
 export type VoiceResult = z.infer<typeof VoiceResultSchema>;
@@ -78,10 +87,11 @@ const PROMPT = [
   '4. Write a short English title and a clear English description suitable for a complaint form. Keep the citizen\'s meaning; do not invent detail they did not say.',
   '5. Classify into exactly one category: Water Supply, Electricity, Sanitation, Drainage, Waste Management, Street Lights, Roads & Infrastructure, Public Health.',
   '6. Assign priority (Low, Medium, High, Critical) and sentiment (Positive, Neutral, Negative, Highly Negative) based on the urgency and tone actually expressed.',
+  '7. Report confidence as a number between 0 and 1 reflecting how clearly the audio supported this classification. Lower it when the speech was unclear, ambiguous, or covered more than one issue.',
   '',
-  'If the audio contains no intelligible speech — silence, noise, or music — set speechDetected to false, put whatever you can in transcript (or the word "unintelligible"), and use Public Health, Low, Neutral as placeholders. Never fabricate a complaint that was not spoken.',
+  'If the audio contains no intelligible speech — silence, noise, or music — set speechDetected to false, put whatever you can in transcript (or the word "unintelligible"), use Public Health, Low, Neutral as placeholders, and set confidence to 0. Never fabricate a complaint that was not spoken.',
   '',
-  'Return ONLY a JSON object with keys: transcript, detectedLanguage, englishText, title, description, category, priority, sentiment, speechDetected.',
+  'Return ONLY a JSON object with keys: transcript, detectedLanguage, englishText, title, description, category, priority, sentiment, speechDetected, confidence.',
   'No commentary, no code fences.',
 ].join('\n');
 
