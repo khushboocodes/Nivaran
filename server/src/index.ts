@@ -14,12 +14,23 @@ import reports from './routes/reports';
 import planning from './routes/planning';
 import { sessionMiddleware } from './auth/middleware';
 import { startSlaScheduler } from './services/sla';
+import { prisma } from './db';
 
 // shared types come from '@nivaran/shared' (see shared/src)
 
 const app = new Hono();
 
 app.use('*', logger());
+
+// Liveness probe, mounted before every other middleware on purpose.
+//
+// This must answer using nothing but the event loop. If it needed the
+// session middleware or the database, then "process is dead" and "database
+// is dead" would look identical from outside, and a platform health check
+// would keep recycling a perfectly healthy container because its database
+// was unreachable. Readiness — can we actually serve data? — is a separate
+// question, answered by /api/ready below.
+app.get('/api/health', (c) => c.json({ ok: true, ts: Date.now() }));
 
 // CORS: allow the configured app URL, localhost for dev, and any Vercel
 // deployment subdomain (preview + production URLs both end in .vercel.app).
@@ -42,7 +53,24 @@ app.use(
 );
 app.use('*', sessionMiddleware);
 
-app.get('/api/health', (c) => c.json({ ok: true, ts: Date.now() }));
+/**
+ * Readiness probe: confirms the process can actually reach its database.
+ *
+ * Returns 503 with the failure reason when the database is unreachable, so a
+ * broken deployment is diagnosable with a single curl instead of guesswork
+ * over why pages are empty. The error message is included deliberately —
+ * connection errors name the host and port, never credentials.
+ */
+app.get('/api/ready', async (c) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return c.json({ ok: true, database: 'up', ts: Date.now() });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return c.json({ ok: false, database: 'down', error: message, ts: Date.now() }, 503);
+  }
+});
+
 app.route('/api/auth', auth);
 app.route('/api/users', users);
 app.route('/api/complaints', complaints);
@@ -54,10 +82,26 @@ app.route('/api/settings', settings);
 app.route('/api/reports', reports);
 app.route('/api/planning', planning);
 
-const port = Number(process.env.PORT ?? 3001);
+// Last-resort safety net. Node terminates on an unhandled rejection by
+// default, so one stray background promise anywhere in the process can kill
+// a server that is otherwise serving requests correctly. Logging and staying
+// up is the right trade for an API: a degraded endpoint is recoverable, a
+// dead container behind a proxy is an unexplained hang for every user.
+process.on('unhandledRejection', (reason) => {
+  console.error('[server] unhandled rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[server] uncaught exception:', err);
+});
 
-serve({ fetch: app.fetch, port }, (info) => {
-  console.log(`[server] listening on http://localhost:${info.port}`);
+// Bind to 0.0.0.0 explicitly. Container platforms route to the published
+// port from outside the container, so a loopback-only bind would accept
+// nothing from the platform router.
+const port = Number(process.env.PORT ?? 3001);
+const hostname = process.env.HOST ?? '0.0.0.0';
+
+serve({ fetch: app.fetch, port, hostname }, (info) => {
+  console.log(`[server] listening on ${hostname}:${info.port}`);
   // Background SLA scheduler — runs every 5 minutes, escalates overdue complaints.
   startSlaScheduler();
 });

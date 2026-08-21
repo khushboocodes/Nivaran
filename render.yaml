@@ -4,6 +4,10 @@ services:
     runtime: docker
     dockerfilePath: ./server/Dockerfile
     dockerContext: .
+    # Liveness only — /api/health touches no database, so the platform will
+    # not recycle a healthy container just because Postgres is unreachable.
+    # Use /api/ready to check whether the database is actually usable.
+    healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
         sync: false
@@ -45,5 +49,12 @@ services:
         sync: false
       - key: SMS_PROVIDER
         value: console
+      # The AI layer prefers Gemini whenever GEMINI_API_KEY is present and
+      # degrades to the deterministic heuristic classifier otherwise, so the
+      # deployment stays functional if the key is missing or quota is spent.
       - key: AI_PROVIDER
-        value: heuristic
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash

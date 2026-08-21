@@ -72,4 +72,11 @@ EXPOSE 3001
 # it's reliably on PATH and not re-downloaded at boot.
 RUN npm install -g tsx@4.19.2
 
-CMD sh -c "npx prisma migrate deploy && tsx src/index.ts"
+# Migrations run on boot, but a migration failure must NOT stop the server
+# from listening. With `&&`, an unreachable or expired database meant the
+# process exited before binding the port — the platform's router then had no
+# upstream and held every incoming request open without ever writing a
+# response, so the API looked hung rather than broken and the browser sat on
+# a blank page. Starting regardless turns that silent hang into an
+# HTTP-level failure that `/api/health` and `/api/ready` can explain.
+CMD sh -c "npx prisma migrate deploy || echo '[boot] prisma migrate deploy FAILED — starting the server anyway so /api/health and /api/ready can report the fault'; exec tsx src/index.ts"

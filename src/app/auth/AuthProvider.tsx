@@ -12,6 +12,16 @@ interface MeResponse { user: User | null; }
 interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
+  /**
+   * True when the session probe could not reach the API at all — DNS
+   * failure, offline, CORS rejection, or a timeout because the backend is
+   * down. This is deliberately distinct from "reached the API and it said
+   * nobody is signed in": the first is a broken deployment that we must
+   * report, the second is the ordinary signed-out state.
+   */
+  isUnreachable: boolean;
+  /** Re-run the session probe. Used by the "try again" affordance. */
+  retry: () => void;
   login: (input: LoginInput) => Promise<User>;
   signup: (input: SignupInput) => Promise<User>;
   logout: () => Promise<void>;
@@ -76,9 +86,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  // `status === 0` is the client's marker for "never got an HTTP response".
+  // Anything with a real status (401 included) means the API is alive and
+  // answering, so it is not an availability problem.
+  const meError = meQuery.error;
+  const isUnreachable =
+    meQuery.isError && meError instanceof ApiError && meError.status === 0;
+
   const value: AuthContextValue = {
     user: meQuery.data?.user ?? null,
     isLoading: meQuery.isLoading,
+    isUnreachable,
+    retry: () => {
+      void queryClient.invalidateQueries({ queryKey: ME_KEY });
+    },
     login: async (input) => (await loginMutation.mutateAsync(input)).user,
     signup: async (input) => (await signupMutation.mutateAsync(input)).user,
     logout: async () => {

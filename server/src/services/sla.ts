@@ -135,13 +135,28 @@ export async function runSlaPass(): Promise<{ escalated: number }> {
   }
 }
 
+/**
+ * Run one pass, absorbing any failure.
+ *
+ * `runSlaPass` awaits the database before reaching its own per-complaint
+ * try/catch, so an unreachable database rejects the whole call. A bare
+ * `void runSlaPass()` would leave that rejection unhandled, and Node has
+ * terminated the process on unhandled rejections since v15 — meaning a
+ * background maintenance task could take down the entire API on boot. A
+ * background job failing must never be fatal to request serving.
+ */
+function runSlaPassSafely(): void {
+  void runSlaPass().catch((err: unknown) => {
+    // eslint-disable-next-line no-console
+    console.error('[sla] pass failed:', err instanceof Error ? err.message : err);
+  });
+}
+
 export function startSlaScheduler(): void {
   if (timer) return;
   // Run once on boot so an admin can see results immediately, then on the cadence.
-  void runSlaPass();
-  timer = setInterval(() => {
-    void runSlaPass();
-  }, INTERVAL_MS);
+  runSlaPassSafely();
+  timer = setInterval(runSlaPassSafely, INTERVAL_MS);
   // Keeping the interval `unref`ed lets the process exit during tests.
   timer.unref?.();
 }

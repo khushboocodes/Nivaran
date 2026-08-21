@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
+import SessionBootScreen from '../components/SessionBootScreen';
 
 type Role = 'citizen' | 'officer' | 'admin';
 
@@ -41,9 +42,12 @@ interface RequireAuthProps {
  * never to the citizen login form.
  */
 export function RequireAuth({ children, redirectTo, roles }: RequireAuthProps) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isUnreachable, retry } = useAuth();
   const location = useLocation();
-  if (isLoading) return null;
+  if (isLoading) return <SessionBootScreen />;
+  // A dead API must not be reported as "you are signed out" — bouncing to a
+  // login form that cannot possibly succeed hides the real fault.
+  if (isUnreachable) return <SessionBootScreen unreachable onRetry={retry} />;
   if (!user) {
     return <Navigate to={redirectTo} replace state={{ from: location.pathname }} />;
   }
@@ -68,9 +72,10 @@ interface RequireRoleProps {
  * portals.
  */
 export function RequireRole({ children, roles, redirectTo }: RequireRoleProps) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isUnreachable, retry } = useAuth();
   const location = useLocation();
-  if (isLoading) return null;
+  if (isLoading) return <SessionBootScreen />;
+  if (isUnreachable) return <SessionBootScreen unreachable onRetry={retry} />;
   if (!user) {
     return <Navigate to={redirectTo} replace state={{ from: location.pathname }} />;
   }
@@ -103,8 +108,14 @@ export function RedirectIfAuthenticated({
   citizenTo = '/citizen/dashboard',
   adminTo = '/admin/dashboard',
 }: RedirectIfAuthenticatedProps) {
-  const { user, isLoading } = useAuth();
-  if (isLoading) return null;
+  const { user } = useAuth();
+  // Public-only pages render optimistically rather than waiting for the
+  // session probe. These pages need no session to be useful, so blocking
+  // them on the API means a slow or dead backend blanks the landing page —
+  // the first thing a first-time visitor sees. Redirecting only once a user
+  // is *positively* identified costs a brief flash of the public page for
+  // someone who is already signed in, which is a far better failure mode
+  // than an unexplained empty screen for everyone else.
   if (user) {
     const target = user.role === 'citizen' ? citizenTo : adminTo;
     return <Navigate to={target} replace />;

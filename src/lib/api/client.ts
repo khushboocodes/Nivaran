@@ -17,6 +17,21 @@ const BASE_URL: string =
   ((import.meta as unknown as { env?: Record<string, string | undefined> })
     .env?.VITE_API_BASE_URL ?? '/api');
 
+/**
+ * Default per-request timeout, in milliseconds.
+ *
+ * Deliberately generous. Free-tier container hosts (Render, Fly) spin the
+ * service down when idle and a cold start can take the better part of a
+ * minute, so a short timeout would abort requests that were going to
+ * succeed. The point of the timeout is not latency policing — it is to
+ * guarantee that a request always *settles*. A proxy sitting in front of a
+ * crashed container accepts the TCP connection and then never writes a
+ * response, so a bare `fetch` stays pending forever. Any UI that keys off
+ * `isLoading` then hangs permanently, which is how a dead API turns into a
+ * blank white page.
+ */
+const DEFAULT_TIMEOUT_MS = 45_000;
+
 /** Methods that may carry a JSON body. */
 type BodyMethod = 'POST' | 'PATCH' | 'PUT';
 
@@ -37,6 +52,13 @@ export interface RequestOptions {
   signal?: AbortSignal;
   /** Extra headers merged on top of the defaults. */
   headers?: Record<string, string>;
+  /**
+   * Per-request timeout override in milliseconds. Defaults to
+   * {@link DEFAULT_TIMEOUT_MS}. Pass `0` to disable the timeout entirely
+   * (only appropriate for long-running streams that report their own
+   * progress).
+   */
+  timeoutMs?: number;
 }
 
 /**
@@ -156,11 +178,35 @@ async function request<T>(
     Object.assign(headers, options.headers);
   }
 
+  // A single controller fans in two independent abort sources: our timeout
+  // and the caller's own signal. `AbortSignal.any` would express this
+  // directly but is too new to rely on across the browsers judges may use,
+  // so the two are wired together by hand.
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const controller = new AbortController();
+  const external = options.signal;
+
+  let timedOut = false;
+  const onExternalAbort = () => controller.abort();
+
+  if (external) {
+    if (external.aborted) controller.abort();
+    else external.addEventListener('abort', onExternalAbort, { once: true });
+  }
+
+  const timer =
+    timeoutMs > 0
+      ? setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+        }, timeoutMs)
+      : undefined;
+
   const init: RequestInit = {
     method,
     credentials: 'include',
     headers,
-    signal: options.signal,
+    signal: controller.signal,
   };
 
   if (isBodyMethod && body !== undefined) {
@@ -172,13 +218,30 @@ async function request<T>(
     response = await fetch(url, init);
   } catch (err) {
     // `fetch` throws on DNS failure, offline, CORS preflight failure, and
-    // explicit aborts. Preserve `AbortError` as-is so callers can detect
-    // cancellation; everything else becomes a network-level ApiError.
+    // explicit aborts. Distinguish the three abort causes: our timeout is a
+    // reportable server problem, whereas a caller-initiated abort must stay
+    // an `AbortError` so React Query treats it as a cancellation rather
+    // than a failure.
+    if (timedOut) {
+      throw new ApiError(
+        `The server did not respond within ${Math.round(timeoutMs / 1000)}s.`,
+        0,
+        'timeout',
+        err,
+      );
+    }
     if (err instanceof DOMException && err.name === 'AbortError') {
       throw err;
     }
     const message = err instanceof Error ? err.message : 'Network request failed';
     throw new ApiError(message, 0, 'network_error', err);
+  } finally {
+    // Headers have arrived (or the attempt failed), so the connection is
+    // proven live and the deadline has done its job. Reading the body is
+    // left untimed on purpose — cancelling a half-read response would
+    // surface as a confusing error for a server that is plainly responding.
+    if (timer !== undefined) clearTimeout(timer);
+    if (external) external.removeEventListener('abort', onExternalAbort);
   }
 
   if (!response.ok) {
