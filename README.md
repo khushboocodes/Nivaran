@@ -1,8 +1,43 @@
-# NIVARAN — Citizen Grievance Platform
+# NIVARAN — Citizen Grievance Platform & National Demand Intelligence
 
 NIVARAN is an AI-assisted civic-grievance platform. Citizens file complaints in any of 11 Indian languages, attach photos / videos / audio, drop a pin on the map, and watch the status. Officers and admins triage, assign, escalate, and resolve from a separate console with analytics, heatmaps, audit logs, and exportable reports.
 
+On top of that intake layer sits a **national demand-intelligence layer**: citizen
+requests are aggregated to district level, joined against Census 2011 demographic
+and household-amenity data, and ranked to surface where infrastructure investment
+is most needed. Gemini writes the policy rationale over figures that SQL computes,
+so every number a policymaker sees is traceable and reproducible.
+
 The whole stack runs locally with two commands. No paid services required.
+
+## Project history and hackathon disclosure
+
+This repository is **not** a from-scratch hackathon build, and the commit history
+says so plainly. Being explicit about it:
+
+- **Pre-existing (first commit 2026-07-08 through commit `1226099`).** The
+  citizen grievance portal, admin console, authentication, Prisma schema, Gemini
+  complaint classification, attachments, 11-language UI, Leaflet heatmap, SLA
+  escalation, audit log, PDF/CSV reports, Docker setup, and CI. Roughly the first
+  three-quarters of `PROJECT_NOTES.md` describes this work.
+- **Built for this challenge.** The district geography model, ingest of real
+  Census 2011 district data, the deterministic district prioritisation engine, the
+  grounded Gemini policy-briefing layer, the national planning console, and
+  voice-first intake via Gemini multimodal audio.
+
+Everything in the second list is what converts a municipal complaint tracker into
+a national planning tool, and it is where the challenge-specific work sits. See
+[ATTRIBUTIONS.md](ATTRIBUTIONS.md) for third-party code and dataset citations, and
+the synthetic-data disclosure.
+
+### A note on the demand data
+
+District-level demand volumes in the demo are **synthetic**, generated and
+weighted by real Census 2011 deprivation figures so that hotspots land on genuine
+infrastructure gaps. They are flagged in the database and badged in the UI. Real
+complaints filed through the app are stored unflagged and stay distinguishable.
+Nivaran has no access to real national grievance microdata; CPGRAMS publishes
+only aggregate monthly PDFs.
 
 ## Stack
 

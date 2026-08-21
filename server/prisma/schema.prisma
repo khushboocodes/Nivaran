@@ -108,6 +108,24 @@ model Complaint {
   location              String?
   lat                   Float?
   lng                   Float?
+
+  // Geography. Nullable because complaints filed before the district model
+  // existed have no district, and because a citizen may not resolve to one.
+  districtId            String?       @map("district_id")
+  district              District?     @relation(fields: [districtId], references: [id])
+
+  // True for modelled demand records generated to demonstrate district-level
+  // hotspots. Never set on a complaint filed through the app by a real user.
+  // Surfaced in the UI and in ATTRIBUTIONS.md so real and modelled demand are
+  // never conflated.
+  isSynthetic           Boolean       @default(false) @map("is_synthetic")
+
+  // Original-language transcript of a voice submission, before translation.
+  // Kept alongside the translated description so multilingual intake is
+  // auditable rather than lossy.
+  sourceTranscript      String?       @map("source_transcript")
+  sourceLanguage        String?       @map("source_language")
+
   estimatedResolutionAt DateTime?     @map("estimated_resolution_at")
   submittedAt           DateTime      @default(now()) @map("submitted_at")
   updatedAt             DateTime      @updatedAt @map("updated_at")
@@ -121,6 +139,9 @@ model Complaint {
   @@index([priority])
   @@index([departmentId, status])
   @@index([citizenId])
+  // Drives the district-by-category demand aggregate in the planning engine.
+  @@index([districtId, category])
+  @@index([isSynthetic])
   @@map("complaints")
 }
 
@@ -201,4 +222,150 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// National planning layer
+//
+// The grievance side of Nivaran answers "is this citizen's problem fixed?".
+// These models answer a different question: "across the country, where should
+// the next rupee of infrastructure investment go?". They aggregate citizen
+// demand to district level and join it against real Census 2011 demographic
+// and household-amenity data.
+//
+// Design note: every figure the planning engine produces is computed in SQL
+// from these tables. Gemini reads the computed aggregates and writes prose
+// about them; it never invents a number. See services/planning.
+// ---------------------------------------------------------------------------
+
+model State {
+  id         String     @id @default(cuid())
+  name       String     @unique
+  /// Census 2011 state code. Nullable because union territories and states
+  /// reorganised after 2011 may not carry one.
+  censusCode Int?       @unique @map("census_code")
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  districts  District[]
+
+  @@map("states")
+}
+
+model District {
+  id              String   @id @default(cuid())
+  /// Census 2011 district code (1..640). The upsert key for census ingest.
+  censusCode      Int      @unique @map("census_code")
+  /// Local Government Directory code. Reserved for joining scheme-level data
+  /// such as Jal Jeevan Mission, which keys on LGD rather than census codes.
+  lgdCode         String?  @unique @map("lgd_code")
+  name            String
+  stateId         String   @map("state_id")
+  state           State    @relation(fields: [stateId], references: [id])
+
+  /// Centroid, used to place the district on the map without shipping polygons.
+  lat             Float?
+  lng             Float?
+
+  // --- Census 2011 absolutes. Rates are derived, not stored, so the raw
+  // counts stay auditable against the published tables. ---
+  population      Int?
+  households      Int?
+  literate        Int?
+  scPopulation    Int?     @map("sc_population")
+  stPopulation    Int?     @map("st_population")
+  ruralHouseholds Int?     @map("rural_households")
+  urbanHouseholds Int?     @map("urban_households")
+
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  indicators      DistrictIndicator[]
+  investments     Investment[]
+  complaints      Complaint[]
+  recommendations Recommendation[]
+
+  @@index([stateId])
+  @@index([name])
+  @@map("districts")
+}
+
+/// Tall/long format on purpose. A wide table would need a migration for every
+/// new indicator; this shape absorbs new datasets (SDG index, air quality,
+/// scheme coverage) without touching the schema.
+model DistrictIndicator {
+  id         String   @id @default(cuid())
+  districtId String   @map("district_id")
+  district   District @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  /// Provenance, e.g. 'census2011'. Every row must be traceable to a dataset.
+  source     String
+  /// Machine name, e.g. 'no_tapwater_pct'.
+  metric     String
+  value      Float
+  /// 'pct' | 'count' | 'index' — kept so the UI can format without guessing.
+  unit       String   @default("pct")
+  asOf       DateTime @map("as_of")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([districtId, source, metric, asOf])
+  @@index([metric])
+  @@map("district_indicators")
+}
+
+/// Public money already committed to a district, used to compute investment
+/// deficit: high demand plus high deprivation plus low spend equals underserved.
+model Investment {
+  id              String   @id @default(cuid())
+  districtId      String   @map("district_id")
+  district        District @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  /// Scheme name, e.g. 'Jal Jeevan Mission'.
+  scheme          String
+  sanctionYear    Int?     @map("sanction_year")
+  /// Indian public accounts are published in lakhs; stored as published to
+  /// avoid rounding drift, formatted for display at the edge.
+  costLakh        Float    @map("cost_lakh")
+  expenditureLakh Float    @default(0) @map("expenditure_lakh")
+  status          String   @default("unknown")
+  source          String
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([districtId, scheme])
+  @@map("investments")
+}
+
+/// A persisted, reproducible prioritisation result for one district-category
+/// pair. Scores come from SQL; `rationale` and the JSON fields come from Gemini
+/// reading those scores.
+model Recommendation {
+  id                     String   @id @default(cuid())
+  districtId             String   @map("district_id")
+  district               District @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  category               String
+  rank                   Int
+
+  // --- Deterministic sub-scores, each normalised 0..1 ---
+  demandScore            Float    @map("demand_score")
+  gapScore               Float    @map("gap_score")
+  investmentDeficitScore Float    @map("investment_deficit_score")
+  equityScore            Float    @map("equity_score")
+  priorityScore          Float    @map("priority_score")
+
+  // --- Gemini-authored narrative over the scores above ---
+  rationale              String   @default("")
+  interventions          Json?
+  risks                  Json?
+  expectedBeneficiaries  Int?     @map("expected_beneficiaries")
+
+  /// Which model produced the narrative, e.g. 'gemini-2.5-flash', or
+  /// 'none' when the ranking rendered without a narrative.
+  modelName              String   @map("model_name")
+  /// SHA-256 of the exact aggregate payload sent to the model. Lets us prove
+  /// which numbers produced which sentence, and detect stale narratives.
+  inputDigest            String   @map("input_digest")
+  /// True when the narrative step failed and only deterministic scores exist.
+  degraded               Boolean  @default(false)
+  generatedAt            DateTime @default(now()) @map("generated_at")
+
+  @@index([districtId])
+  @@index([category, rank])
+  @@map("recommendations")
 }

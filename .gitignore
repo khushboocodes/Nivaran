@@ -57,8 +57,15 @@ backups/
 .kiro/
 guidelines/
 PROJECT_NOTES.md
-ATTRIBUTIONS.md
 DEPLOYMENT.md
+# ATTRIBUTIONS.md is deliberately NOT ignored: the hackathon rules require
+# third-party code and dataset citations to be publicly visible in the repo.
+
+# --- Ingested public datasets -----------------------------------------------
+# Source CSVs are fetched on first ingest rather than committed. The Census
+# mirror we read carries no licence, so redistributing it here would not be
+# permissible. See ATTRIBUTIONS.md.
+server/prisma/ingest/data/
 
 # --- OS junk ----------------------------------------------------------------
 .DS_Store
