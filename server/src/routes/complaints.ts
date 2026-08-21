@@ -18,6 +18,7 @@ import {
 } from '../serializers/complaint';
 import { centroidFor } from '../services/planning/state-centroids';
 import { loadSettings } from '../services/settings';
+import { resolveDistrict } from '../services/districts';
 import { sendComplaintEvent } from '../services/email';
 import { sendSms } from '../services/sms';
 import attachments from './attachments';
@@ -520,6 +521,24 @@ complaints.post('/', async (c) => {
   const { title, description, category, language, location, lat, lng } = parsed.data;
   const departmentId = await resolveDepartmentByCategory(category);
 
+  // Attach a district so the complaint reaches the planning layer and the
+  // heatmap, not just the national counters. Citizens never pick a district, so
+  // it is inferred from the free-text location, falling back to their profile
+  // city. Returns null rather than guessing when the name is ambiguous — a wrong
+  // district would feed another region's demand signal and distort a funding
+  // recommendation, which is worse than no district at all.
+  const author = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { city: true },
+  });
+  const districtMatch = await resolveDistrict(location, author?.city);
+  if (districtMatch) {
+    console.log(
+      `[complaints] mapped to ${districtMatch.districtName}, ${districtMatch.stateName} ` +
+        `via ${districtMatch.matchedOn} "${districtMatch.token}"`,
+    );
+  }
+
   // Use a transaction so the complaint and its first notification land atomically.
   const created = await prisma.$transaction(async (tx) => {
     const complaint = await tx.complaint.create({
@@ -533,6 +552,9 @@ complaints.post('/', async (c) => {
         lng,
         citizenId: user.id,
         departmentId,
+        // Null when the location could not be resolved confidently. The complaint
+        // still counts nationally, it just does not appear in district aggregates.
+        districtId: districtMatch?.districtId ?? null,
         // Persist the optional AI fields when the client provided them so
         // the citizen dashboard's "AI Confidence" tile reflects real data.
         ...(parsed.data.priority !== undefined ? { priority: parsed.data.priority } : {}),
