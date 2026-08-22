@@ -494,7 +494,7 @@ export default function SubmitComplaint() {
         </div>
 
         {/* Two Column Layout */}
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: Form (2 columns) */}
           <div className="lg:col-span-2">
             <Card className="p-6 border-[#E5E7EB] bg-white shadow-sm">
@@ -531,7 +531,7 @@ export default function SubmitComplaint() {
                 </div>
 
                 {/* Category and Language Row */}
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="category" className="text-sm font-medium text-[#0B1220] mb-2 block">
                       Category

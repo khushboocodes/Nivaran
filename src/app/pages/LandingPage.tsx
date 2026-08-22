@@ -29,7 +29,11 @@ export default function LandingPage() {
                 </div>
                 <span className="font-bold text-[#0F172A]">NIVARAN</span>
               </div>
-              <Badge variant="secondary" className="bg-[#DBEAFE] text-[#1D4ED8] hover:bg-[#DBEAFE] border-0 text-xs px-2 py-0.5">
+              {/* Hidden on phones: the logo, this badge and both CTAs together
+                  exceed a 412px viewport and push the whole page sideways.
+                  The hero heading immediately below already says
+                  "AI-Powered", so nothing is actually lost on small screens. */}
+              <Badge variant="secondary" className="hidden sm:inline-flex bg-[#DBEAFE] text-[#1D4ED8] hover:bg-[#DBEAFE] border-0 text-xs px-2 py-0.5">
                 <Bot className="w-3 h-3 mr-1" />
                 AI POWERED
               </Badge>
@@ -62,7 +66,7 @@ export default function LandingPage() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_60%_50%,rgba(59,130,246,0.06),transparent_70%)]" />
 
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-12 relative">
-          <div className="grid lg:grid-cols-2 gap-10 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
             {/* Left Content */}
             <div className="space-y-4 pt-6">
               <Badge variant="secondary" className="bg-white border border-[#E5E7EB] text-xs shadow-[0_2px_8px_rgba(15,23,42,0.08)]">
@@ -339,7 +343,7 @@ export default function LandingPage() {
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Feature Cards with Dark Icon Containers */}
             <div className="group bg-white rounded-xl border border-[#E5E7EB] p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
               <div className="flex items-start justify-between mb-4">
@@ -425,7 +429,7 @@ export default function LandingPage() {
       {/* CTA Section - Compact Blue Layout */}
       <section className="bg-gradient-to-r from-[#1D4ED8] to-[#1e40af] py-14">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
               <div className="text-xs text-white/80 font-semibold mb-3 uppercase tracking-wide">GET STARTED</div>
               <h2 className="text-4xl font-bold text-white mb-4">
@@ -492,7 +496,7 @@ export default function LandingPage() {
       {/* Footer - Dark Navy */}
       <footer className="bg-[#0F172A] text-white">
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-10">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-7 h-7 rounded-lg bg-[#1D4ED8] flex items-center justify-center">

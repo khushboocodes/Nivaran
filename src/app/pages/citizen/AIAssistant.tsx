@@ -326,7 +326,7 @@ export default function AIAssistant() {
             {messages.length === 0 && (
               <div className="space-y-4 pt-4">
                 <p className="text-xs text-[#6B7280] text-center font-medium uppercase tracking-wide">Suggested Questions</p>
-                <div className="grid md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {SUGGESTED_PROMPTS.map((prompt, index) => (
                     <button
                       key={index}

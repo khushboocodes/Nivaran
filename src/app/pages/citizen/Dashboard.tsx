@@ -187,15 +187,17 @@ export default function Dashboard() {
   return (
     <CitizenLayout>
       <div className="p-4 md:p-8 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        {/* Header. `flex-wrap` lets the action buttons drop to their own line
+            on narrow screens — without it the title and both buttons are
+            forced onto one row and push the page wider than the viewport. */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div>
             <div className="text-[10px] text-[#6B7280] uppercase tracking-wider font-semibold mb-1">
               {t('common:portalCitizen').toUpperCase()}
             </div>
             <h1 className="text-3xl font-bold text-[#0B1220]">{t('citizen:dashboard.welcome')}</h1>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Link to="/citizen/track">
               <Button variant="outline" className="border-[#E5E7EB] bg-white hover:bg-[#F8FAFC] h-10">
                 <Search className="w-4 h-4 mr-2" />
@@ -274,7 +276,7 @@ export default function Dashboard() {
         </div>
 
         {/* Two Column Layout */}
-        <div className="grid lg:grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Quick Actions */}
           <Card className="p-6 border-[#E5E7EB] bg-white shadow-sm">
             <h3 className="font-semibold text-[#0B1220] mb-4 text-base">
@@ -391,7 +393,7 @@ export default function Dashboard() {
           </div>
 
           {/* Insight Grid */}
-          <div className="grid md:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="bg-[#F8FAFC] rounded-xl p-4 border border-[#E5E7EB]">
               <div className="text-xs text-[#6B7280] mb-2 font-medium">{t('citizen:dashboard.insights.topCategory')}</div>
               <div className="text-2xl font-bold text-[#0B1220] mb-1 truncate">

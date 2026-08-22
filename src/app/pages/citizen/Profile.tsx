@@ -168,7 +168,7 @@ export default function CitizenProfile() {
               {profileErrors.name && <p className="text-xs text-[#EF4444] mt-1">{profileErrors.name.message}</p>}
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="phone" className="text-sm font-medium text-[#0B1220] mb-2 block">Phone</Label>
                 <Input id="phone" {...registerProfile('phone')} placeholder="+91 98765 43210" className="h-11 border-[#E5E7EB] rounded-xl focus:ring-2 focus:ring-[#2952E3] focus:border-transparent" />
@@ -224,7 +224,7 @@ export default function CitizenProfile() {
               <Input id="currentPassword" type="password" {...registerPassword('currentPassword')} className="h-11 border-[#E5E7EB] rounded-xl focus:ring-2 focus:ring-[#2952E3] focus:border-transparent" />
               {passwordErrors.currentPassword && <p className="text-xs text-[#EF4444] mt-1">{passwordErrors.currentPassword.message}</p>}
             </div>
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="newPassword" className="text-sm font-medium text-[#0B1220] mb-2 block">New password</Label>
                 <Input id="newPassword" type="password" {...registerPassword('newPassword')} className="h-11 border-[#E5E7EB] rounded-xl focus:ring-2 focus:ring-[#2952E3] focus:border-transparent" />
