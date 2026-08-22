@@ -13,6 +13,7 @@ import settings from './routes/settings';
 import reports from './routes/reports';
 import planning from './routes/planning';
 import uploads from './routes/uploads';
+import geo from './routes/geo';
 import { sessionMiddleware } from './auth/middleware';
 import { startSlaScheduler } from './services/sla';
 import { storageDriver } from './services/storage';
@@ -90,6 +91,7 @@ app.route('/api/feedback', feedback);
 app.route('/api/settings', settings);
 app.route('/api/reports', reports);
 app.route('/api/planning', planning);
+app.route('/api/geo', geo);
 
 // Last-resort safety net. Node terminates on an unhandled rejection by
 // default, so one stray background promise anywhere in the process can kill

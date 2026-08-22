@@ -290,17 +290,47 @@ export default function SubmitComplaint() {
     setLocationError(null);
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         const lat = Number(pos.coords.latitude.toFixed(6));
         const lng = Number(pos.coords.longitude.toFixed(6));
+
+        // Turn the fix into a place name before writing it to the field.
+        //
+        // This is not cosmetic. The server resolves a complaint to a Census
+        // district by matching district *names* in this text, so coordinates
+        // alone resolve to nothing and the complaint never reaches the
+        // district aggregates or the planning layer. Writing both means the
+        // citizen can verify where the report is pinned, and the district is
+        // recoverable from the same string.
+        let label: string | null = null;
+        try {
+          const place = await apiClient.get<{ label: string | null }>('/geo/reverse', {
+            query: { lat, lng },
+          });
+          label = place.label;
+        } catch {
+          // Geocoding is a convenience, never a gate on filing a complaint.
+          label = null;
+        }
+
         setFormData((prev) => ({
           ...prev,
           lat,
           lng,
           // Only auto-populate the visible string when the field is empty,
           // so we don't overwrite a careful manual address.
-          location: prev.location.trim().length === 0 ? `${lat}, ${lng}` : prev.location,
+          location:
+            prev.location.trim().length === 0
+              ? label
+                ? `${lat}, ${lng} - ${label}`
+                : `${lat}, ${lng}`
+              : prev.location,
         }));
+        if (!label) {
+          setLocationError(
+            'Saved your exact coordinates, but could not look up the address. Add the area and district if you can.',
+          );
+        }
         setIsLocating(false);
       },
       (err) => {

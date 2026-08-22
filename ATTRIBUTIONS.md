@@ -53,6 +53,28 @@ CC BY 4.0 unless stated otherwise. Attribution as requested by the project:
 
 > India boundaries by DataMeet India community (CC BY 4.0)
 
+### OpenStreetMap / Nominatim — reverse geocoding
+
+When a citizen taps "Use my location", the coordinates are turned into a place
+name using [Nominatim](https://nominatim.openstreetmap.org/), the geocoding
+service run by the OpenStreetMap Foundation. This is what lets a report filed
+from a phone resolve to a Census district instead of staying an unlabelled point.
+
+OpenStreetMap data is licensed under the
+[Open Database Licence (ODbL) 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
+Required attribution:
+
+> Location data © OpenStreetMap contributors, available under the Open Database
+> Licence (ODbL).
+
+We follow the
+[Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/):
+requests are proxied through our own API with a descriptive `User-Agent`,
+serialised to at most one request per second, and cached at roughly 110 m
+precision so repeated reports from the same neighbourhood cost one upstream
+lookup. No bulk geocoding is performed, and a lookup failure degrades to storing
+plain coordinates rather than retrying.
+
 ### Jal Jeevan Mission village scheme infrastructure data — pending
 
 [JJM Village Scheme Infrastructure Data](https://aikosh.indiaai.gov.in/home/datasets/details/jjm_village_scheme_infrastructure_data.html)
