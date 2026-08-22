@@ -4,7 +4,7 @@ import { Bot, Calendar, Download, FileText, Loader2 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../../lib/api/client';
+import { apiClient, buildUrl } from '../../../lib/api/client';
 
 type ReportType = 'category' | 'priority' | 'status' | 'department';
 
@@ -42,15 +42,16 @@ export default function AdminReports() {
   const downloadReport = async (format: 'pdf' | 'csv') => {
     setDownloading(format);
     try {
-      // Build the URL through the same /api proxy used by apiClient so the
-      // session cookie is sent. We hit the API directly here so the browser
-      // can stream the binary response into a file save.
+      // Resolved through buildUrl so this targets the real API host rather
+      // than the frontend origin. We call fetch directly rather than going
+      // through apiClient because the response is a binary stream saved to a
+      // file, not JSON.
       const params = new URLSearchParams({
         type: reportType,
         days: dateRangeDays,
         format,
       });
-      const res = await fetch(`/api/reports?${params.toString()}`, {
+      const res = await fetch(`${buildUrl('/reports')}?${params.toString()}`, {
         credentials: 'include',
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../../lib/api/client';
+import { apiClient, buildUrl } from '../../../lib/api/client';
 import { useDepartmentScope } from '../../contexts/DepartmentScopeContext';
 
 /**
@@ -63,8 +63,10 @@ export default function AdminAnalytics() {
         'Provide: 1) Key findings (2-3 bullet points), 2) Top concern areas, 3) Recommended actions (2-3 points). Keep it under 200 words.',
       ].join('\n');
 
-      // Use the chat endpoint for the report
-      const res = await fetch('/api/ai/chat', {
+      // Use the chat endpoint for the report. Must go through buildUrl: a
+      // relative '/api/...' path resolves against the frontend origin, which
+      // is a different host from the API in any real deployment.
+      const res = await fetch(buildUrl('/ai/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

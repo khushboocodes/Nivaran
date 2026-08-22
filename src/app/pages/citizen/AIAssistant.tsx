@@ -4,6 +4,7 @@ import { Bot, Send } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { useComplaints } from '../../contexts/ComplaintContext';
+import { buildUrl } from '../../../lib/api/client';
 import { format } from 'date-fns';
 
 interface ChatMessage {
@@ -189,7 +190,13 @@ export default function AIAssistant() {
     setIsStreaming(true);
 
     try {
-      const res = await fetch('/api/ai/chat', {
+      // buildUrl, not a bare '/api/...' string. A relative path resolves
+      // against the *frontend* origin, which only happens to work in dev
+      // where the Vite proxy forwards /api to the local server. Once the API
+      // is deployed to its own host the same path hits the SPA rewrite and
+      // returns index.html with a 200, so this reads HTML as an event stream
+      // and reports the assistant as unavailable.
+      const res = await fetch(buildUrl('/ai/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

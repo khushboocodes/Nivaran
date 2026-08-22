@@ -16,7 +16,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
-import { apiClient } from '../../../lib/api/client';
+import { apiClient, buildUrl } from '../../../lib/api/client';
 
 /**
  * National Demand Intelligence.
@@ -294,7 +294,8 @@ export default function AdminPlanning() {
     setDownloading(true);
     try {
       const params = new URLSearchParams({ districtId, category: cat });
-      const res = await fetch(`/api/planning/brief.pdf?${params.toString()}`, {
+      // buildUrl so the request targets the API host, not the frontend origin.
+      const res = await fetch(`${buildUrl('/planning/brief.pdf')}?${params.toString()}`, {
         credentials: 'include',
       });
       if (!res.ok) {
