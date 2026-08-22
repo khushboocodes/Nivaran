@@ -132,6 +132,7 @@ model Complaint {
   resolvedAt            DateTime?     @map("resolved_at")
 
   attachments           Attachment[]
+  attachmentBlobs       AttachmentBlob[]
   notifications         Notification[]
   feedback              Feedback?
 
@@ -156,6 +157,39 @@ model Attachment {
 
   @@index([complaintId])
   @@map("attachments")
+}
+
+/// Raw bytes for an attachment, used by the database storage driver.
+///
+/// Why store blobs in Postgres at all? The alternative is an S3-compatible
+/// bucket, which means a third-party account, credentials and a CORS policy
+/// before a single file can be uploaded. That is a hard dependency for a
+/// feature that has to work on a free-tier deployment, and an unconfigured
+/// bucket fails in a way that looks like a broken app rather than missing
+/// configuration. Keeping bytes next to the metadata means uploads work with
+/// nothing but a database, and the S3 driver stays available for anyone who
+/// needs to scale past that.
+///
+/// The trade-off is real: `bytes` is a bytea column, so large files consume
+/// database storage and every read passes through the API. That is the right
+/// call for evidence photos on a demo-scale deployment and the wrong call for
+/// a large video library, which is exactly why the driver is swappable.
+///
+/// Keyed by `objectKey` rather than an id so the S3 and database drivers
+/// address objects identically and the calling code does not branch.
+model AttachmentBlob {
+  objectKey   String    @id @map("object_key")
+  complaintId String    @map("complaint_id")
+  complaint   Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  contentType String    @map("content_type")
+  /// Raw file bytes. Cascade-deleted with the parent complaint so a deleted
+  /// complaint cannot leave orphaned storage behind.
+  bytes       Bytes
+  sizeBytes   Int       @map("size_bytes")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([complaintId])
+  @@map("attachment_blobs")
 }
 
 model Notification {

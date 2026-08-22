@@ -31,7 +31,24 @@ This guide walks through deploying Nivaran on free tiers across 4 platforms.
 
 ---
 
-## Step 2: Cloudflare R2 (File Storage)
+## Step 2: Cloudflare R2 (File Storage) — OPTIONAL
+
+> **Skip this step unless you need it.** Attachment uploads work out of the box
+> with no object storage at all. The default `db` storage driver keeps file
+> bytes in the `attachment_blobs` Postgres table and serves them from
+> `GET /api/uploads/<key>`, so photos, video, audio and voice recordings all
+> work with nothing configured beyond `DATABASE_URL`.
+>
+> Switch to a bucket when file volume outgrows your database plan — bytes in
+> Postgres count against storage (0.5 GB on Neon's free plan) and every read
+> passes through the API. To switch, set `STORAGE_DRIVER=s3` plus the `S3_*`
+> variables below. The driver is chosen by that one variable and is never
+> inferred, so a half-configured bucket cannot silently take over.
+>
+> Note that R2 also needs a bucket CORS policy allowing `PUT` from your Vercel
+> origin, which the database driver does not.
+
+## Step 2 (optional): Cloudflare R2
 
 **Why:** Free 10 GB storage for complaint attachments, no egress fees.
 
@@ -256,8 +273,21 @@ blank page, the deployed bundle predates that fix — redeploy from `main`.
 - Most likely: `DATABASE_URL` is wrong, or the database was deleted
 
 **Attachments fail to upload**
-- Check R2 credentials in Render environment
-- Verify bucket CORS settings allow PUT from your Vercel domain
+
+First check which storage driver is active — the API logs it on boot:
+
+```
+[storage] attachment driver: db
+```
+
+- `db` (the default): uploads need no external service. A failure here is a
+  database problem, so check `/api/ready`. Files larger than 25 MB are
+  rejected with `413`.
+- `s3`: check the `S3_*` credentials in the Render environment, and verify the
+  bucket's CORS policy allows `PUT` from your Vercel domain.
+
+If uploads fail with a network error and the driver says `s3` when you never
+configured a bucket, remove `STORAGE_DRIVER` so it falls back to `db`.
 
 **CORS errors in browser console**
 - Make sure `PUBLIC_APP_URL` in Render matches your Vercel URL exactly (no trailing slash)
