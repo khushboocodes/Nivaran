@@ -15,7 +15,7 @@ import planning from './routes/planning';
 import uploads from './routes/uploads';
 import { sessionMiddleware } from './auth/middleware';
 import { startSlaScheduler } from './services/sla';
-import { rememberApiBase, storageDriver } from './services/storage';
+import { storageDriver } from './services/storage';
 import { prisma } from './db';
 
 // shared types come from '@nivaran/shared' (see shared/src)
@@ -53,27 +53,6 @@ app.use(
     credentials: true,
   }),
 );
-/**
- * Record the externally visible origin so attachment URLs can be absolute.
- *
- * Attachment URLs are stored in the database and served to browsers on a
- * different origin, so they cannot be relative. Reading the origin off a real
- * request avoids inventing another environment variable that would silently
- * be wrong. `X-Forwarded-Proto` is what makes this correct behind a platform
- * router: the hop into the container is plain HTTP, so trusting the request's
- * own scheme would mint `http://` URLs that a browser then refuses to load
- * from an HTTPS page as mixed content.
- */
-app.use('*', async (c, next) => {
-  const host = c.req.header('X-Forwarded-Host') ?? c.req.header('Host');
-  if (host) {
-    const proto =
-      c.req.header('X-Forwarded-Proto') ?? new URL(c.req.url).protocol.replace(':', '');
-    rememberApiBase(`${proto}://${host}`);
-  }
-  return next();
-});
-
 // Raw attachment bytes. Mounted ahead of the session middleware because
 // neither endpoint uses a session: the PUT carries its own signed token and
 // the GET is public, matching the presigned-PUT / public-read pair it stands

@@ -112,22 +112,51 @@ export function verifyUploadToken(
  * origin than the API in any real deployment — a relative path would resolve
  * against the frontend and 404 into the SPA fallback.
  *
- * Derived from the incoming request by default so no extra environment
- * variable is required, with `PUBLIC_API_URL` as an override for setups where
- * the externally visible host differs from what reaches the process.
+ * Resolved per request rather than cached. An earlier version remembered the
+ * first origin it saw, which a platform health check poisoned immediately:
+ * that probe arrives on the container's plain-HTTP port with no
+ * `X-Forwarded-Proto`, so every attachment URL was minted as `http://` and a
+ * browser on an HTTPS page then refused to load it as mixed content.
+ *
+ * `PUBLIC_API_URL` overrides everything, for setups where the externally
+ * visible host differs from anything present on the request.
  */
-let cachedApiBase: string | null = null;
-
-export function rememberApiBase(origin: string): void {
-  if (!cachedApiBase && origin) cachedApiBase = origin.replace(/\/$/, '');
-}
-
-function apiBase(): string {
+export function resolveApiBase(headers: {
+  forwardedProto?: string;
+  forwardedHost?: string;
+  host?: string;
+  requestUrl?: string;
+}): string {
   const configured = process.env.PUBLIC_API_URL;
   if (configured) return configured.replace(/\/$/, '');
-  if (cachedApiBase) return cachedApiBase;
-  const port = process.env.PORT ?? '3001';
-  return `http://localhost:${port}`;
+
+  const host = headers.forwardedHost ?? headers.host;
+  if (!host) {
+    const port = process.env.PORT ?? '3001';
+    return `http://localhost:${port}`;
+  }
+
+  // Trust the forwarded scheme first: TLS terminates at the platform router,
+  // so the request reaching this process is plain HTTP even when the client
+  // spoke HTTPS. Falling back to the request's own scheme is only correct
+  // when nothing is in front of us, i.e. local development.
+  let proto = headers.forwardedProto?.split(',')[0]?.trim();
+  if (!proto && headers.requestUrl) {
+    try {
+      proto = new URL(headers.requestUrl).protocol.replace(':', '');
+    } catch {
+      proto = undefined;
+    }
+  }
+  if (!proto) proto = 'http';
+
+  // A non-local host reached over plain HTTP is almost certainly a proxy hop
+  // that dropped the header rather than a genuinely insecure public endpoint.
+  // Assuming HTTPS there is safer than emitting a URL browsers will block.
+  const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])(:|$)/i.test(host);
+  if (proto === 'http' && !isLocal) proto = 'https';
+
+  return `${proto}://${host}`;
 }
 
 /* ------------------------------------------------------------------ *
@@ -204,6 +233,7 @@ function getBucketReady(): Promise<void> {
 export async function presignPutUrl(
   objectKey: string,
   contentType: string,
+  apiBase: string,
 ): Promise<{ uploadUrl: string; expiresInSeconds: number }> {
   if (storageDriver === 's3') {
     await getBucketReady();
@@ -220,15 +250,15 @@ export async function presignPutUrl(
   const params = new URLSearchParams({ exp: String(expiresAtMs), token });
   // The key is path-encoded rather than passed as a query parameter so the
   // upload and download URLs stay readable and share one shape.
-  const uploadUrl = `${apiBase()}/api/uploads/${encodeURI(objectKey)}?${params.toString()}`;
+  const uploadUrl = `${apiBase}/api/uploads/${encodeURI(objectKey)}?${params.toString()}`;
   return { uploadUrl, expiresInSeconds: PRESIGN_EXPIRY_SECONDS };
 }
 
-export function publicUrlFor(objectKey: string): string {
+export function publicUrlFor(objectKey: string, apiBase: string): string {
   if (storageDriver === 's3') {
     return `${PUBLIC_BASE.replace(/\/$/, '')}/${BUCKET}/${objectKey}`;
   }
-  return `${apiBase()}/api/uploads/${encodeURI(objectKey)}`;
+  return `${apiBase}/api/uploads/${encodeURI(objectKey)}`;
 }
 
 export const storageBucket = BUCKET;

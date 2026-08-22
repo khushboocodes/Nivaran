@@ -25,7 +25,24 @@ import {
 import { prisma } from '../db';
 import { getUser } from '../auth/middleware';
 import { audit } from '../services/audit';
-import { presignPutUrl, publicUrlFor } from '../services/storage';
+import { presignPutUrl, publicUrlFor, resolveApiBase } from '../services/storage';
+
+/**
+ * Externally visible base URL for this API, taken from the current request.
+ *
+ * Resolved per request rather than once at boot: the first request a container
+ * sees is typically the platform's health probe, which arrives over plain HTTP
+ * with no forwarding headers and would otherwise fix every attachment URL to
+ * `http://` for the process's lifetime.
+ */
+function apiBaseFrom(c: { req: { header: (n: string) => string | undefined; url: string } }): string {
+  return resolveApiBase({
+    forwardedProto: c.req.header('X-Forwarded-Proto'),
+    forwardedHost: c.req.header('X-Forwarded-Host'),
+    host: c.req.header('Host'),
+    requestUrl: c.req.url,
+  });
+}
 
 type SessionUser = { id: string; role: 'citizen' | 'officer' | 'admin' };
 
@@ -118,12 +135,13 @@ attachments.post('/sign', async (c) => {
   const ext = extensionFor(kind, contentType);
   const objectKey = `complaints/${complaintId}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
 
-  const { uploadUrl, expiresInSeconds } = await presignPutUrl(objectKey, contentType);
+  const base = apiBaseFrom(c);
+  const { uploadUrl, expiresInSeconds } = await presignPutUrl(objectKey, contentType, base);
   return c.json({
     uploadUrl,
     objectKey,
     expiresInSeconds,
-    publicUrl: publicUrlFor(objectKey),
+    publicUrl: publicUrlFor(objectKey, base),
     sizeBytes,
   });
 });
@@ -147,7 +165,7 @@ attachments.post('/', async (c) => {
     data: {
       complaintId,
       kind,
-      url: publicUrlFor(objectKey),
+      url: publicUrlFor(objectKey, apiBaseFrom(c)),
       sizeBytes,
     },
   });
