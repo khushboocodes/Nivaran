@@ -18,8 +18,9 @@ says so plainly. Being explicit about it:
 - **Pre-existing (first commit 2026-07-08 through commit `1226099`).** The
   citizen grievance portal, admin console, authentication, Prisma schema, Gemini
   complaint classification, attachments, 11-language UI, Leaflet heatmap, SLA
-  escalation, audit log, PDF/CSV reports, Docker setup, and CI. Roughly the first
-  three-quarters of `PROJECT_NOTES.md` describes this work.
+  escalation, audit log, PDF/CSV reports, Docker setup, and CI. All of it
+  predates the challenge and is verifiable in this repository's commit history up
+  to and including `1226099`.
 - **Built for this challenge.** The district geography model, ingest of real
   Census 2011 district data, the deterministic district prioritisation engine, the
   grounded Gemini policy-briefing layer, the national planning console, and
