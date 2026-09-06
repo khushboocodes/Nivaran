@@ -105,6 +105,21 @@ export function useDepartmentScope(): DepartmentScopeContextValue {
   if (!ctx) {
     // Fallback when used outside the provider (e.g. in tests or non-admin
     // surfaces). Behaves as 'all' so consumers don't need to special-case.
+    //
+    // Warn loudly in development, because this fallback once hid a real bug for
+    // a long time: the provider was mounted inside AdminLayout, which every
+    // admin page renders as a child, so each page's own hook call landed here
+    // and quietly reported "all departments". Selecting a department updated
+    // the sidebar label and changed nothing else. Silence is what made that
+    // hard to see, so it is no longer silent.
+    if (import.meta.env?.DEV) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[DepartmentScope] useDepartmentScope() called outside DepartmentScopeProvider — ' +
+          'falling back to "all". If this is an admin page, its data will not be ' +
+          'department-filtered. Mount the provider above the page, not inside AdminLayout.',
+      );
+    }
     return {
       scope: 'all',
       setScope: () => undefined,

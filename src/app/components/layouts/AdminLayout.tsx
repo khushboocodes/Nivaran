@@ -1,55 +1,68 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, FileText, BarChart3, Map, AlertTriangle, FileBarChart, Star, Settings, LogOut, ChevronDown, Users, Menu, X, Compass } from 'lucide-react';
 import { useAuth } from '../../auth/AuthProvider';
-import {
-  DepartmentScopeProvider,
-  useDepartmentScope,
-} from '../../contexts/DepartmentScopeContext';
+import { useDepartmentScope } from '../../contexts/DepartmentScopeContext';
 import { useMobileNav } from './useMobileNav';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
+/**
+ * Department scope selector.
+ *
+ * This is a real, visible `<select>` styled to match the sidebar, not a
+ * decorative div with a transparent select laid over it. The previous version
+ * did the latter, and it made the department names unreadable: `opacity-0` on
+ * the select, plus white text inherited from the dark sidebar, meant the
+ * browser drew the native dropdown as white-on-white. The list was there and
+ * keyboard-navigable, just invisible.
+ *
+ * The options carry explicit colours because the popup inherits the select's
+ * white text otherwise, which is invisible against the popup's own light
+ * background on every platform we can't style.
+ */
 function DepartmentSelector() {
-  const { scope, setScope, departments, scopeLabel } = useDepartmentScope();
+  const { scope, setScope, departments } = useDepartmentScope();
   return (
     <div className="relative">
-      <div className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#2F5BFF] hover:bg-[#2549D9] transition-all shadow-sm pointer-events-none">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-5 h-5 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
-            <LayoutDashboard className="w-3.5 h-3.5" strokeWidth={2} />
-          </div>
-          <span className="text-xs font-medium truncate">{scopeLabel}</span>
-        </div>
-        <ChevronDown className="w-3.5 h-3.5 shrink-0" strokeWidth={2} />
-      </div>
       <select
         value={scope}
         onChange={(e) => setScope(e.target.value)}
         aria-label="Filter by department"
-        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+        className="w-full appearance-none cursor-pointer rounded-xl bg-[#2F5BFF] hover:bg-[#2549D9] transition-colors shadow-sm text-white text-xs font-medium pl-10 pr-9 py-2.5 focus:outline-none focus:ring-2 focus:ring-white/50"
       >
-        <option value="all">All Departments</option>
+        <option value="all" className="bg-white text-[#0B1220]">
+          All Departments
+        </option>
         {departments.map((d) => (
-          <option key={d.id} value={d.id}>
+          <option key={d.id} value={d.id} className="bg-white text-[#0B1220]">
             {d.name}
           </option>
         ))}
       </select>
+      {/* Decorative only. `pointer-events-none` so clicks fall through to the
+          select underneath and the native dropdown still opens. */}
+      <div className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-lg bg-white/20 flex items-center justify-center">
+        <LayoutDashboard className="w-3.5 h-3.5 text-white" strokeWidth={2} />
+      </div>
+      <ChevronDown
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white"
+        strokeWidth={2}
+      />
     </div>
   );
 }
 
+/**
+ * The department-scope provider deliberately does NOT live here.
+ *
+ * Every admin page renders this layout as a child, so a provider mounted here
+ * would sit *below* the page's own `useDepartmentScope()` call and the page
+ * would silently get the "all departments" fallback. It is mounted once as a
+ * pathless layout route in App.tsx instead, above every admin page.
+ */
 export default function AdminLayout({ children }: AdminLayoutProps) {
-  return (
-    <DepartmentScopeProvider>
-      <AdminLayoutInner>{children}</AdminLayoutInner>
-    </DepartmentScopeProvider>
-  );
-}
-
-function AdminLayoutInner({ children }: AdminLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();

@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
 import { ComplaintProvider } from './contexts/ComplaintContext';
+import { DepartmentScopeProvider } from './contexts/DepartmentScopeContext';
 import { AuthProvider } from './auth/AuthProvider';
 import { RequireAuth, RequireRole, RedirectIfAuthenticated } from './auth/guards';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -36,6 +37,22 @@ import AdminSettings from './pages/admin/Settings';
 import AdminAudit from './pages/admin/Audit';
 import AdminUsers from './pages/admin/Users';
 
+/**
+ * Supplies the admin department scope to every admin page.
+ *
+ * Mounted as a pathless layout route so the provider is an ancestor of the
+ * pages rather than a descendant. Scoped to /admin/* rather than the whole
+ * app because the provider fetches the department list, which is meaningless
+ * for citizens and would be a wasted request on every citizen page.
+ */
+function AdminScope() {
+  return (
+    <DepartmentScopeProvider>
+      <Outlet />
+    </DepartmentScopeProvider>
+  );
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -65,7 +82,15 @@ export default function App() {
         <Route path="/citizen/assistant" element={<RequireAuth roles={['citizen']} redirectTo="/login"><AIAssistant /></RequireAuth>} />
         <Route path="/citizen/profile" element={<RequireAuth roles={['citizen']} redirectTo="/login"><CitizenProfile /></RequireAuth>} />
 
-        {/* Admin Console */}
+        {/* Admin Console.
+            Wrapped in a pathless layout route so DepartmentScopeProvider sits
+            ABOVE every admin page. It used to live inside AdminLayout, which
+            each page renders as a *child* — so a page's own
+            `useDepartmentScope()` call ran higher in the tree than the
+            provider and silently received the "all departments" fallback.
+            The sidebar selector, being inside AdminLayout, read the real
+            value, which is why the label changed while none of the data did. */}
+        <Route element={<AdminScope />}>
         <Route path="/admin/dashboard" element={<RequireRole roles={['admin', 'officer']} redirectTo="/admin/login"><AdminDashboard /></RequireRole>} />
         <Route path="/admin/complaints" element={<RequireRole roles={['admin', 'officer']} redirectTo="/admin/login"><AdminComplaints /></RequireRole>} />
         <Route path="/admin/analytics" element={<RequireRole roles={['admin', 'officer']} redirectTo="/admin/login"><AdminAnalytics /></RequireRole>} />
@@ -77,6 +102,7 @@ export default function App() {
         <Route path="/admin/settings" element={<RequireRole roles={['admin', 'officer']} redirectTo="/admin/login"><AdminSettings /></RequireRole>} />
         <Route path="/admin/audit" element={<RequireRole roles={['admin', 'officer']} redirectTo="/admin/login"><AdminAudit /></RequireRole>} />
         <Route path="/admin/users" element={<RequireRole roles={['admin']} redirectTo="/admin/login"><AdminUsers /></RequireRole>} />
+        </Route>
 
         {/* Catch-all 404 */}
         <Route path="*" element={<NotFound />} />
