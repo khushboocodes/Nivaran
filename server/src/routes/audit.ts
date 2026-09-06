@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import type { Prisma } from '@prisma/client';
+// Value import, not `import type`: Prisma.sql / Prisma.join are used below to
+// build a parameterised raw query.
+import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { getUser } from '../auth/middleware';
 import { resolveDeptScope, type DeptScope } from '../services/scope';
@@ -24,24 +26,61 @@ const QuerySchema = z.object({
 });
 
 /**
- * Department scope for the audit log, applied through the **actor**.
+ * Audit ids belonging to one department, resolved in SQL.
  *
- * A deliberate interpretation, because there are two defensible ones. An entry
- * records `entity` + `entityId` as bare strings with no relation, so scoping by
- * the affected complaint's department would need `entityId IN (...)` over every
- * complaint in that department — tens of thousands of ids, against an index
- * that only covers `(entity, entityId)` for equality. Not viable.
+ * An entry stores `entity` + `entityId` as bare strings with no relation, so
+ * Prisma cannot express "audit rows whose complaint is in this department".
+ * The alternatives were both worse: `entityId IN (...)` would inline tens of
+ * thousands of complaint ids, and scoping by the *actor's* department returns
+ * nothing at all here, because no staff account in this deployment has a
+ * department assigned — a filter that is technically correct and practically
+ * useless.
  *
- * Scoping by the actor's department answers "what did this department's staff
- * do", which is the question an audit trail is usually asked. Note that
- * automated actions are attributed to a system account with no department, so
- * they drop out of a scoped view — correct, since they are nobody's
- * departmental activity, but worth knowing when a scoped log looks quiet.
+ * So the join is done in SQL and only the matching ids for the requested page
+ * come back. Prisma then fetches those rows normally, which keeps one
+ * serialisation path instead of two. The join is cheap: it hits the complaints
+ * primary key.
+ *
+ * Scoping necessarily restricts the log to complaint-related entries, since
+ * nothing else carries a department.
  */
-function auditScopeWhere(scope: DeptScope): Prisma.AuditLogWhereInput {
-  if (scope.impossible) return { actorId: '__no_results__' };
-  if (!scope.departmentId) return {};
-  return { actor: { departmentId: scope.departmentId } };
+async function auditIdsForDepartment(
+  departmentId: string,
+  filters: { action?: string; from?: Date; to?: Date },
+  skip: number,
+  take: number,
+): Promise<{ ids: string[]; total: number }> {
+  const conds: Prisma.Sql[] = [
+    Prisma.sql`a.entity = 'Complaint'`,
+    Prisma.sql`c.department_id = ${departmentId}`,
+  ];
+  if (filters.action) conds.push(Prisma.sql`a.action = ${filters.action}`);
+  if (filters.from) conds.push(Prisma.sql`a.at >= ${filters.from}`);
+  if (filters.to) conds.push(Prisma.sql`a.at < ${filters.to}`);
+  const whereSql = Prisma.join(conds, ' AND ');
+
+  const [rows, counted] = await Promise.all([
+    prisma.$queryRaw<{ id: string }[]>(
+      Prisma.sql`
+        SELECT a.id
+        FROM audit_log a
+        JOIN complaints c ON c.id = a.entity_id
+        WHERE ${whereSql}
+        ORDER BY a.at DESC
+        LIMIT ${take} OFFSET ${skip}
+      `,
+    ),
+    prisma.$queryRaw<{ count: bigint }[]>(
+      Prisma.sql`
+        SELECT COUNT(*)::bigint AS count
+        FROM audit_log a
+        JOIN complaints c ON c.id = a.entity_id
+        WHERE ${whereSql}
+      `,
+    ),
+  ]);
+
+  return { ids: rows.map((r) => r.id), total: Number(counted[0]?.count ?? 0) };
 }
 
 audit.get('/', async (c) => {
@@ -60,9 +99,23 @@ audit.get('/', async (c) => {
   const { entity, entityId, actorId, action, from, to, page, pageSize, format, dept } =
     parsed.data;
 
-  const where: Prisma.AuditLogWhereInput = auditScopeWhere(
-    await resolveDeptScope(user, dept),
-  );
+  const scope = await resolveDeptScope(user, dept);
+
+  const where: Prisma.AuditLogWhereInput = {};
+  // An officer with no department sees nothing, rather than everything.
+  if (scope.impossible) where.id = '__no_results__';
+  if (scope.departmentId) {
+    const { ids } = await auditIdsForDepartment(
+      scope.departmentId,
+      { action: action || undefined, from: from ? new Date(from) : undefined, to: to ? new Date(to) : undefined },
+      // The CSV branch below wants everything, the JSON branch one page. Resolve
+      // generously here and let each branch slice; capped so a huge department
+      // cannot produce an unbounded id list.
+      0,
+      format === 'csv' ? 10_000 : page * pageSize,
+    );
+    where.id = { in: ids.slice(format === 'csv' ? 0 : (page - 1) * pageSize) };
+  }
   if (entity) where.entity = entity;
   if (entityId) where.entityId = entityId;
   if (actorId) where.actorId = actorId;
