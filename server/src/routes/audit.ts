@@ -51,7 +51,11 @@ async function auditIdsForDepartment(
   take: number,
 ): Promise<{ ids: string[]; total: number }> {
   const conds: Prisma.Sql[] = [
-    Prisma.sql`a.entity = 'Complaint'`,
+    // Compared case-insensitively on purpose: entries are written as
+    // 'complaint' today, but the column is a free-form string with no
+    // constraint, so an exact match is a silent-zero-results trap. The join is
+    // driven by the complaints primary key, so this costs nothing meaningful.
+    Prisma.sql`lower(a.entity) = 'complaint'`,
     Prisma.sql`c.department_id = ${departmentId}`,
   ];
   if (filters.action) conds.push(Prisma.sql`a.action = ${filters.action}`);
