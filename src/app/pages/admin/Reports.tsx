@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient, buildUrl } from '../../../lib/api/client';
+import { useDepartmentScope } from '../../contexts/DepartmentScopeContext';
 
 type ReportType = 'category' | 'priority' | 'status' | 'department';
 
@@ -18,6 +19,7 @@ interface ReportResponse {
 }
 
 export default function AdminReports() {
+  const { scope } = useDepartmentScope();
   const [reportType, setReportType] = useState<ReportType>('category');
   // Defaults to all time so the headline totals agree with the dashboard on first
   // load. A 30-day default made Reports look like it disagreed with every other
@@ -25,11 +27,18 @@ export default function AdminReports() {
   const [dateRangeDays, setDateRangeDays] = useState('3650');
   const [downloading, setDownloading] = useState<'pdf' | 'csv' | null>(null);
 
+  // `scope` is part of the query key, not just the request, so switching
+  // department refetches instead of serving another department's cached report.
   const reportQuery = useQuery<ReportResponse>({
-    queryKey: ['reports', reportType, dateRangeDays],
+    queryKey: ['reports', reportType, dateRangeDays, scope],
     queryFn: () =>
       apiClient.get<ReportResponse>('/reports', {
-        query: { type: reportType, days: dateRangeDays, format: 'json' },
+        query: {
+          type: reportType,
+          days: dateRangeDays,
+          format: 'json',
+          ...(scope !== 'all' ? { dept: scope } : {}),
+        },
       }),
   });
 
@@ -51,6 +60,9 @@ export default function AdminReports() {
         days: dateRangeDays,
         format,
       });
+      // The exported file must match what is on screen, so the department
+      // scope travels with the download too.
+      if (scope !== 'all') params.set('dept', scope);
       const res = await fetch(`${buildUrl('/reports')}?${params.toString()}`, {
         credentials: 'include',
       });

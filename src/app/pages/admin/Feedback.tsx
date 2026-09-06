@@ -3,11 +3,14 @@ import { Star } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { useFeedbackStatsQuery } from '../../../lib/api/hooks';
+import { useDepartmentScope } from '../../contexts/DepartmentScopeContext';
 
 export default function AdminFeedback() {
-  // Live aggregates from /api/feedback/stats. While loading or on error we
-  // keep the page rendering with safe zeros so the layout never shifts.
-  const { data } = useFeedbackStatsQuery();
+  const { scope } = useDepartmentScope();
+  // Live aggregates from /api/feedback/stats, narrowed to the selected
+  // department. While loading or on error we keep the page rendering with safe
+  // zeros so the layout never shifts.
+  const { data } = useFeedbackStatsQuery(scope);
 
   const distribution = data?.distribution ?? { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
   const ratingData = [

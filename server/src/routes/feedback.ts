@@ -1,15 +1,33 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { FeedbackCreateSchema } from '@nivaran/shared';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { getUser } from '../auth/middleware';
 import { audit } from '../services/audit';
+import { resolveDeptScope, deptParamFrom, type DeptScope } from '../services/scope';
 
 const feedback = new Hono();
 
 const ListQuery = z.object({
   complaintId: z.string().optional(),
+  /** Admin sidebar department scope. Officers are pinned to their own. */
+  dept: z.string().optional(),
 });
+
+/**
+ * Feedback rows carry no department of their own, so the scope is applied
+ * through the complaint they belong to.
+ *
+ * `impossible` produces a filter that matches nothing. Returning `{}` instead
+ * would mean "no filter", i.e. every department — the exact inversion of what
+ * an officer without a department should see.
+ */
+function feedbackScopeWhere(scope: DeptScope): Prisma.FeedbackWhereInput {
+  if (scope.impossible) return { complaintId: '__no_results__' };
+  if (!scope.departmentId) return {};
+  return { complaint: { departmentId: scope.departmentId } };
+}
 
 feedback.get('/', async (c) => {
   const user = getUser(c);
@@ -24,8 +42,12 @@ feedback.get('/', async (c) => {
 
   // Citizens only see their own feedback. Officers/admins see everything;
   // we surface this for the admin Feedback page.
-  const where: Record<string, unknown> = {};
-  if (user.role === 'citizen') where.citizenId = user.id;
+  const where: Prisma.FeedbackWhereInput = {};
+  if (user.role === 'citizen') {
+    where.citizenId = user.id;
+  } else {
+    Object.assign(where, feedbackScopeWhere(await resolveDeptScope(user, parsed.data.dept)));
+  }
   if (parsed.data.complaintId) where.complaintId = parsed.data.complaintId;
 
   const items = await prisma.feedback.findMany({
@@ -65,23 +87,32 @@ feedback.get('/stats', async (c) => {
   if (!user) return c.json({ code: 'unauthenticated' }, 401);
   if (user.role === 'citizen') return c.json({ code: 'forbidden' }, 403);
 
+  // Same filter on every query in the transaction. If it were applied to only
+  // some, the average, the distribution and the per-category breakdown would
+  // each describe a different population.
+  const where = feedbackScopeWhere(await resolveDeptScope(user, deptParamFrom(c.req.url)));
+
   const [agg, distRows, all, recent] = await prisma.$transaction([
     prisma.feedback.aggregate({
+      where,
       _avg: { rating: true },
       _count: { _all: true },
     }),
     prisma.feedback.groupBy({
       by: ['rating'],
+      where,
       _count: { _all: true },
       orderBy: { rating: 'asc' },
     }),
     prisma.feedback.findMany({
+      where,
       select: {
         rating: true,
         complaint: { select: { category: true } },
       },
     }),
     prisma.feedback.findMany({
+      where,
       orderBy: { createdAt: 'desc' },
       take: 10,
       include: {

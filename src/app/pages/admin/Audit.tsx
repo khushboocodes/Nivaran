@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import AdminLayout from '../../components/layouts/AdminLayout';
+import { useDepartmentScope } from '../../contexts/DepartmentScopeContext';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
@@ -31,17 +32,19 @@ interface AuditResponse {
 }
 
 export default function AdminAudit() {
+  const { scope } = useDepartmentScope();
   const [entity, setEntity] = useState('');
   const [action, setAction] = useState('');
   const [entityId, setEntityId] = useState('');
 
   const query = useQuery<AuditResponse>({
-    queryKey: ['audit', { entity, action, entityId }],
+    queryKey: ['audit', { entity, action, entityId, scope }],
     queryFn: () => apiClient.get<AuditResponse>('/audit', {
       query: {
         entity: entity || undefined,
         action: action || undefined,
         entityId: entityId || undefined,
+        ...(scope !== 'all' ? { dept: scope } : {}),
         pageSize: 100,
       },
     }),

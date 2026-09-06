@@ -153,6 +153,15 @@ users.post('/me/password', async (c) => {
 const ListQuery = z.object({
   role: RoleSchema.optional(),
   q: z.string().optional(),
+  /**
+   * Admin sidebar department scope. Absent or 'all' lists everyone.
+   *
+   * Scoping to a department lists that department's **staff**, because
+   * `departmentId` is null for citizens — they belong to no department. A
+   * scoped view therefore answers "who works in this department", which is the
+   * only question the column can answer.
+   */
+  dept: z.string().optional(),
 });
 
 users.get('/', async (c) => {
@@ -167,6 +176,8 @@ users.get('/', async (c) => {
     return c.json({ code: 'invalid_input', details: parsed.error.flatten() }, 400);
   }
   const where: Prisma.UserWhereInput = {};
+  const deptScope = parsed.data.dept?.trim();
+  if (deptScope && deptScope !== 'all') where.departmentId = deptScope;
   if (parsed.data.role) where.role = parsed.data.role;
   if (parsed.data.q && parsed.data.q.trim()) {
     where.OR = [

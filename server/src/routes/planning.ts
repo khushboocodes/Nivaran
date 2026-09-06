@@ -22,8 +22,38 @@ import { prisma } from '../db';
 import { getUser } from '../auth/middleware';
 import { rankDistricts, loadWeights, normaliseWeights, DEFAULT_WEIGHTS } from '../services/planning/priority';
 import { CATEGORY_SPECS } from '../services/planning/categories';
+import { categoryToDepartment } from '../services/departments';
 
 const planning = new Hono();
+
+/**
+ * Which planning categories belong to a department.
+ *
+ * Planning rows are keyed by district and category, with no department column —
+ * the unit of analysis is infrastructure need, not organisational ownership. To
+ * honour the admin sidebar scope we invert the existing complaint router:
+ * `categoryToDepartment` already decides which department handles a category, so
+ * asking it for all eight categories tells us which ones a given department
+ * owns. Reusing that map matters — a second, hand-written mapping here would
+ * drift from the one that actually routes complaints.
+ *
+ * Returns undefined for "no scope", which the ranker reads as all categories.
+ */
+async function categoriesForDepartment(deptId: string | undefined): Promise<string[] | undefined> {
+  const wanted = deptId?.trim();
+  if (!wanted || wanted === 'all') return undefined;
+
+  const dept = await prisma.department.findUnique({
+    where: { id: wanted },
+    select: { name: true },
+  });
+  // An unknown id must not silently widen the view back to everything.
+  if (!dept) return [];
+
+  return CATEGORY_SPECS.filter((s) => categoryToDepartment(s.category) === dept.name).map(
+    (s) => s.category,
+  );
+}
 
 /**
  * Officer/admin gate, mirroring routes/reports.ts.
@@ -52,6 +82,8 @@ const WeightQuery = z.object({
 const RankQuery = WeightQuery.extend({
   category: z.string().min(1).optional(),
   stateId: z.string().min(1).optional(),
+  /** Admin sidebar department scope. Absent or 'all' covers every category. */
+  dept: z.string().optional(),
   limit: z.coerce.number().int().positive().max(200).default(25),
   includeSynthetic: z
     .enum(['true', 'false'])
@@ -142,6 +174,7 @@ planning.get('/rank', async (c) => {
   const weights = await resolveWeights(q);
   const { rows, totalCells, investmentDataAvailable } = await rankDistricts({
     category: q.category,
+    categories: await categoriesForDepartment(q.dept),
     stateId: q.stateId,
     includeSynthetic: q.includeSynthetic,
     limit: q.limit,

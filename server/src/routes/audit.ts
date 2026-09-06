@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { getUser } from '../auth/middleware';
+import { resolveDeptScope, type DeptScope } from '../services/scope';
 
 const audit = new Hono();
 
@@ -18,7 +19,30 @@ const QuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(200).default(50),
   format: z.enum(['json', 'csv']).default('json'),
+  /** Admin sidebar department scope. Absent or 'all' means every department. */
+  dept: z.string().optional(),
 });
+
+/**
+ * Department scope for the audit log, applied through the **actor**.
+ *
+ * A deliberate interpretation, because there are two defensible ones. An entry
+ * records `entity` + `entityId` as bare strings with no relation, so scoping by
+ * the affected complaint's department would need `entityId IN (...)` over every
+ * complaint in that department — tens of thousands of ids, against an index
+ * that only covers `(entity, entityId)` for equality. Not viable.
+ *
+ * Scoping by the actor's department answers "what did this department's staff
+ * do", which is the question an audit trail is usually asked. Note that
+ * automated actions are attributed to a system account with no department, so
+ * they drop out of a scoped view — correct, since they are nobody's
+ * departmental activity, but worth knowing when a scoped log looks quiet.
+ */
+function auditScopeWhere(scope: DeptScope): Prisma.AuditLogWhereInput {
+  if (scope.impossible) return { actorId: '__no_results__' };
+  if (!scope.departmentId) return {};
+  return { actor: { departmentId: scope.departmentId } };
+}
 
 audit.get('/', async (c) => {
   const user = getUser(c);
@@ -33,9 +57,12 @@ audit.get('/', async (c) => {
   if (!parsed.success) {
     return c.json({ code: 'invalid_input', details: parsed.error.flatten() }, 400);
   }
-  const { entity, entityId, actorId, action, from, to, page, pageSize, format } = parsed.data;
+  const { entity, entityId, actorId, action, from, to, page, pageSize, format, dept } =
+    parsed.data;
 
-  const where: Prisma.AuditLogWhereInput = {};
+  const where: Prisma.AuditLogWhereInput = auditScopeWhere(
+    await resolveDeptScope(user, dept),
+  );
   if (entity) where.entity = entity;
   if (entityId) where.entityId = entityId;
   if (actorId) where.actorId = actorId;

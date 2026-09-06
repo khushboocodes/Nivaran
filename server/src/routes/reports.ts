@@ -13,8 +13,10 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import PDFDocument from 'pdfkit';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { getUser } from '../auth/middleware';
+import { resolveDeptScope, deptParamFrom, type DeptScope } from '../services/scope';
 
 const reports = new Hono();
 
@@ -22,6 +24,9 @@ const Query = z.object({
   type: z.enum(['category', 'priority', 'status', 'department']).default('category'),
   days: z.coerce.number().int().positive().max(3650).default(30),
   format: z.enum(['json', 'csv', 'pdf']).default('json'),
+  /** Admin sidebar department scope. Ignored for officers, who are pinned to
+   *  their own department. Absent or 'all' means every department. */
+  dept: z.string().optional(),
 });
 
 interface ReportRow {
@@ -32,12 +37,26 @@ interface ReportRow {
 async function buildReport(
   type: 'category' | 'priority' | 'status' | 'department',
   days: number,
+  scope: DeptScope,
 ): Promise<{
   rows: ReportRow[];
   totals: { total: number; resolved: number; resolutionRate: number };
 }> {
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-  const where = { submittedAt: { gte: cutoff } };
+  // The department filter is folded into the shared `where`, so every part of
+  // the report narrows together — the grouped rows, the total, and the resolved
+  // count. Applying it to only some of them would produce a resolution rate
+  // computed from two different populations.
+  const where: Prisma.ComplaintWhereInput = {
+    submittedAt: { gte: cutoff },
+    ...(scope.departmentId ? { departmentId: scope.departmentId } : {}),
+  };
+
+  // An officer with no department: return an empty report rather than letting
+  // an absent filter mean "everything".
+  if (scope.impossible) {
+    return { rows: [], totals: { total: 0, resolved: 0, resolutionRate: 0 } };
+  }
 
   let rows: ReportRow[];
   if (type === 'department') {
@@ -93,7 +112,8 @@ reports.get('/', async (c) => {
   }
   const { type, days, format } = parsed.data;
 
-  const { rows, totals } = await buildReport(type, days);
+  const scope = await resolveDeptScope(user, deptParamFrom(c.req.url));
+  const { rows, totals } = await buildReport(type, days, scope);
 
   if (format === 'json') {
     return c.json({ type, days, ...totals, rows });

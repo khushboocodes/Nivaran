@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
+import { useDepartmentScope } from '../../contexts/DepartmentScopeContext';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
@@ -45,19 +46,23 @@ const ROLE_BADGE: Record<Role, string> = {
 };
 
 export default function AdminUsers() {
+  const { scope } = useDepartmentScope();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | Role>('all');
   const [showInvite, setShowInvite] = useState(false);
   const [editing, setEditing] = useState<AdminUser | null>(null);
 
+  // Scoping to a department lists that department's staff. Citizens have no
+  // department, so they are absent from a scoped view by definition.
   const usersQuery = useQuery<UsersListResponse>({
-    queryKey: ['admin', 'users', search, roleFilter],
+    queryKey: ['admin', 'users', search, roleFilter, scope],
     queryFn: () =>
       apiClient.get<UsersListResponse>('/users', {
         query: {
           q: search.trim() || undefined,
           role: roleFilter === 'all' ? undefined : roleFilter,
+          ...(scope !== 'all' ? { dept: scope } : {}),
         },
       }),
   });

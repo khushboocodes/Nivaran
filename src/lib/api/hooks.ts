@@ -415,12 +415,21 @@ export interface FeedbackStats {
   }[];
 }
 
+/**
+ * @param dept Admin department scope, or 'all'. Included in the query key so
+ *   switching department refetches rather than reusing another department's
+ *   cached aggregates.
+ */
 export function useFeedbackStatsQuery(
+  dept: string = 'all',
   options?: Omit<UseQueryOptions<FeedbackStats>, 'queryKey' | 'queryFn'>,
 ) {
   return useQuery<FeedbackStats>({
-    queryKey: ['feedback', 'stats'],
-    queryFn: () => apiClient.get<FeedbackStats>('/feedback/stats'),
+    queryKey: ['feedback', 'stats', dept],
+    queryFn: () =>
+      apiClient.get<FeedbackStats>('/feedback/stats', {
+        query: dept !== 'all' ? { dept } : undefined,
+      }),
     ...options,
   });
 }

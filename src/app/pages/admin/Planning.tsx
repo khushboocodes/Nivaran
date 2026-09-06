@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
+import { useDepartmentScope } from '../../contexts/DepartmentScopeContext';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
@@ -217,6 +218,7 @@ function ScoreBar({
 // ---------------------------------------------------------------------------
 
 export default function AdminPlanning() {
+  const { scope } = useDepartmentScope();
   const [category, setCategory] = useState<string>('');
   const [stateId, setStateId] = useState<string>('');
   const [limit, setLimit] = useState(25);
@@ -231,13 +233,16 @@ export default function AdminPlanning() {
 
   const effectiveWeights = weights ?? metaQuery.data?.weights ?? null;
 
+  // The department scope narrows the ranking to the categories that department
+  // owns — Electricity covers both Electricity and Street Lights.
   const rankQuery = useQuery<RankResponse>({
-    queryKey: ['planning', 'rank', category, stateId, limit, effectiveWeights],
+    queryKey: ['planning', 'rank', category, stateId, limit, effectiveWeights, scope],
     queryFn: () =>
       apiClient.get<RankResponse>('/planning/rank', {
         query: {
           ...(category ? { category } : {}),
           ...(stateId ? { stateId } : {}),
+          ...(scope !== 'all' ? { dept: scope } : {}),
           limit: String(limit),
           ...(effectiveWeights
             ? {

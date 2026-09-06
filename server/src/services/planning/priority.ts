@@ -286,6 +286,16 @@ export function scoreCells(cells: DemandCell[], weights: Weights = DEFAULT_WEIGH
 export interface LoadOptions {
   /** Restrict to one category. Omit for all. */
   category?: string;
+  /**
+   * Restrict to a set of categories. Omit for all.
+   *
+   * Used by the admin department scope: a department owns one or two of the
+   * eight planning categories (Electricity covers both Electricity and Street
+   * Lights), so scoping the planning view to a department means restricting it
+   * to that department's categories. Intersected with `category` when both are
+   * given, so a narrower explicit choice always wins over the sidebar scope.
+   */
+  categories?: string[];
   /** Restrict to one state by id. Omit for all of India. */
   stateId?: string;
   /**
@@ -307,6 +317,24 @@ export interface LoadOptions {
 export async function loadDemandCells(opts: LoadOptions = {}): Promise<DemandCell[]> {
   const includeSynthetic = opts.includeSynthetic ?? true;
 
+  /**
+   * The category set this run covers, or undefined for all eight.
+   *
+   * `category` and `categories` are intersected rather than one overriding the
+   * other: `categories` carries the department scope from the sidebar, and
+   * `category` is the user's explicit pick within the page. Letting either one
+   * win outright would show a department a category it does not own, or ignore
+   * a filter the user just set.
+   */
+  const selectedCategories: string[] | undefined = (() => {
+    const fromList = opts.categories?.length ? opts.categories : undefined;
+    if (opts.category && fromList) {
+      return fromList.includes(opts.category) ? [opts.category] : [];
+    }
+    if (opts.category) return [opts.category];
+    return fromList;
+  })();
+
   const districtWhere = opts.stateId ? { stateId: opts.stateId } : {};
 
   const [districts, grouped, indicators, investments] = await Promise.all([
@@ -325,7 +353,7 @@ export async function loadDemandCells(opts: LoadOptions = {}): Promise<DemandCel
       by: ['districtId', 'category'],
       where: {
         districtId: { not: null },
-        ...(opts.category ? { category: opts.category } : {}),
+        ...(selectedCategories ? { category: { in: selectedCategories } } : {}),
         ...(includeSynthetic ? {} : { isSynthetic: false }),
       },
       _count: { _all: true },
@@ -367,8 +395,8 @@ export async function loadDemandCells(opts: LoadOptions = {}): Promise<DemandCel
   // important case — it usually means people have given up reporting, or cannot.
   // Dropping those rows would bias the ranking toward places that already have
   // a working feedback loop.
-  const categories = opts.category
-    ? CATEGORY_SPECS.filter((s) => s.category === opts.category)
+  const categories = selectedCategories
+    ? CATEGORY_SPECS.filter((s) => selectedCategories.includes(s.category))
     : CATEGORY_SPECS;
 
   const cells: DemandCell[] = [];
