@@ -25,6 +25,49 @@ interface AIAnalysis {
   summary: string;
 }
 
+/**
+ * The category options, as one list rather than hand-written `<option>` tags.
+ *
+ * The select stores a slug (`water-supply`) while the AI and the server both
+ * speak the display label (`Water Supply`). Those two vocabularies existed
+ * before but nothing connected them, so filling the form from a voice
+ * recording wrote "Water Supply" into a select whose values are slugs, matched
+ * no option, and the dropdown silently fell back to "Select category" — the
+ * citizen saw an empty required field and reasonably assumed the transcription
+ * had failed. Keeping both forms side by side here means the mapping cannot
+ * drift again.
+ */
+const CATEGORY_OPTIONS = [
+  { value: 'water-supply', label: 'Water Supply' },
+  { value: 'electricity', label: 'Electricity' },
+  { value: 'roads-&-infrastructure', label: 'Roads & Infrastructure' },
+  { value: 'sanitation', label: 'Sanitation' },
+  { value: 'drainage', label: 'Drainage' },
+  { value: 'public-health', label: 'Public Health' },
+  { value: 'street-lights', label: 'Street Lights' },
+  { value: 'waste-management', label: 'Waste Management' },
+  { value: 'traffic', label: 'Traffic' },
+  { value: 'other', label: 'Other' },
+] as const;
+
+/**
+ * Resolve whatever the AI returned into a value the select can actually show.
+ *
+ * Accepts a display label ("Street Lights"), a slug ("street-lights"), or
+ * anything cased differently, because the model is prompted for a label but is
+ * not constrained to one. Returns '' for an unrecognised category, which keeps
+ * the field visibly empty rather than wedging an invalid value into a required
+ * input.
+ */
+function toCategoryValue(input: string | null | undefined): string {
+  if (!input) return '';
+  const needle = input.trim().toLowerCase();
+  const hit = CATEGORY_OPTIONS.find(
+    (o) => o.label.toLowerCase() === needle || o.value.toLowerCase() === needle,
+  );
+  return hit?.value ?? '';
+}
+
 export default function SubmitComplaint() {
   const navigate = useNavigate();
   const { addComplaint } = useComplaints();
@@ -230,7 +273,9 @@ export default function SubmitComplaint() {
         ...prev,
         title: prev.title.trim() ? prev.title : res.title,
         description: prev.description.trim() ? prev.description : res.description,
-        category: prev.category || res.category,
+        // Mapped to the select's own vocabulary, otherwise the label the model
+        // returns matches no option and the field renders blank.
+        category: prev.category || toCategoryValue(res.category),
         language: res.detectedLanguage || prev.language,
       }));
 
@@ -392,9 +437,10 @@ export default function SubmitComplaint() {
         : null;
       setFormData((prev) => ({
         ...prev,
-        category: prev.category
-          ? prev.category
-          : analysis.category.toLowerCase().replace(/\s/g, '-'),
+        // Was an inline slugify, which happened to work for the eight expected
+        // labels and silently produced an unmatchable value for anything else.
+        // toCategoryValue validates against the real option list instead.
+        category: prev.category ? prev.category : toCategoryValue(analysis.category),
         language: detected ?? prev.language,
       }));
     } catch (err) {
@@ -574,16 +620,11 @@ export default function SubmitComplaint() {
                       required
                     >
                       <option value="">Select category</option>
-                      <option value="water-supply">Water Supply</option>
-                      <option value="electricity">Electricity</option>
-                      <option value="roads-&-infrastructure">Roads & Infrastructure</option>
-                      <option value="sanitation">Sanitation</option>
-                      <option value="drainage">Drainage</option>
-                      <option value="public-health">Public Health</option>
-                      <option value="street-lights">Street Lights</option>
-                      <option value="waste-management">Waste Management</option>
-                      <option value="traffic">Traffic</option>
-                      <option value="other">Other</option>
+                      {CATEGORY_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
