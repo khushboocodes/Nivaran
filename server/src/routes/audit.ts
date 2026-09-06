@@ -106,19 +106,35 @@ audit.get('/', async (c) => {
   const scope = await resolveDeptScope(user, dept);
 
   const where: Prisma.AuditLogWhereInput = {};
+  /**
+   * Pagination is applied by whichever layer selected the rows.
+   *
+   * When a department scope is active the SQL join has already applied LIMIT and
+   * OFFSET, so `where.id` holds exactly this page. Letting Prisma skip again on
+   * top of that would silently drop rows from page 2 onward.
+   */
+  let prismaSkip = (page - 1) * pageSize;
+  let scopedTotal: number | null = null;
+
   // An officer with no department sees nothing, rather than everything.
-  if (scope.impossible) where.id = '__no_results__';
-  if (scope.departmentId) {
-    const { ids } = await auditIdsForDepartment(
+  if (scope.impossible) {
+    where.id = '__no_results__';
+  } else if (scope.departmentId) {
+    const { ids, total } = await auditIdsForDepartment(
       scope.departmentId,
-      { action: action || undefined, from: from ? new Date(from) : undefined, to: to ? new Date(to) : undefined },
-      // The CSV branch below wants everything, the JSON branch one page. Resolve
-      // generously here and let each branch slice; capped so a huge department
-      // cannot produce an unbounded id list.
-      0,
-      format === 'csv' ? 10_000 : page * pageSize,
+      {
+        action: action || undefined,
+        from: from ? new Date(from) : undefined,
+        to: to ? new Date(to) : undefined,
+      },
+      format === 'csv' ? 0 : prismaSkip,
+      format === 'csv' ? 10_000 : pageSize,
     );
-    where.id = { in: ids.slice(format === 'csv' ? 0 : (page - 1) * pageSize) };
+    where.id = { in: ids };
+    prismaSkip = 0;
+    // The real count from the join, not the size of the id page — otherwise the
+    // UI reports "100 entries" for a department that has thousands.
+    scopedTotal = total;
   }
   if (entity) where.entity = entity;
   if (entityId) where.entityId = entityId;
@@ -158,15 +174,17 @@ audit.get('/', async (c) => {
     return c.body(csv);
   }
 
-  const [items, total] = await Promise.all([
+  const [items, countedTotal] = await Promise.all([
     prisma.auditLog.findMany({
       where,
       orderBy: { at: 'desc' },
-      skip: (page - 1) * pageSize,
+      skip: prismaSkip,
       take: pageSize,
     }),
-    prisma.auditLog.count({ where }),
+    // Skip the redundant count when the join already produced an exact total.
+    scopedTotal === null ? prisma.auditLog.count({ where }) : Promise.resolve(scopedTotal),
   ]);
+  const total = scopedTotal ?? countedTotal;
 
   return c.json({
     items: items.map((r) => ({
