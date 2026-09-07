@@ -138,9 +138,13 @@ const METRICS: MetricSpec[] = [
 async function main() {
   const path = await cachedDownload(CSV_URL, CSV_FILE);
   const rows = readCsv(path);
-  if (rows.length < 2) throw new Error('[census] CSV has no data rows');
+  // Bound to a local so the header row is narrowed once. Indexing a string[][]
+  // yields `string[] | undefined` under noUncheckedIndexedAccess, and this file
+  // reads the header in several places.
+  const header = rows[0];
+  if (rows.length < 2 || !header) throw new Error('[census] CSV has no data rows');
 
-  const idx = headerIndex(rows[0]);
+  const idx = headerIndex(header);
   const required = [
     'District code',
     'State name',
@@ -160,22 +164,33 @@ async function main() {
   }
 
   const dataRows = rows.slice(1);
-  console.log(`[census] parsed ${dataRows.length} district rows, ${rows[0].length} columns`);
+  console.log(`[census] parsed ${dataRows.length} district rows, ${header.length} columns`);
+
+  // --- Country ------------------------------------------------------------
+  // Every row in this file is Indian, so the country is fixed here rather than
+  // inferred. State and district codes are unique only *within* a country, so
+  // the ingest has to know which one it is loading before it can upsert
+  // anything.
+  const country = await prisma.country.upsert({
+    where: { iso2: 'IN' },
+    create: { iso2: 'IN', iso3: 'IND', name: 'India', currency: 'INR' },
+    update: {},
+  });
 
   // --- States -------------------------------------------------------------
   // Census 2011 has no numeric state code in this file, so states are keyed by
-  // name. Title-cased for display; the source SHOUTS them.
-  const stateNames = [...new Set(dataRows.map((r) => titleCase(r[idx.get('State name')!])))].sort();
+  // name within the country. Title-cased for display; the source SHOUTS them.
+  const stateNames = [...new Set(dataRows.map((r) => titleCase(r[idx.get('State name')!] ?? '')))].sort();
   const stateIdByName = new Map<string, string>();
   for (const name of stateNames) {
     const state = await prisma.state.upsert({
-      where: { name },
-      create: { name },
+      where: { countryId_name: { countryId: country.id, name } },
+      create: { name, countryId: country.id },
       update: {},
     });
     stateIdByName.set(name, state.id);
   }
-  console.log(`[census] upserted ${stateIdByName.size} states/UTs`);
+  console.log(`[census] upserted ${stateIdByName.size} states/UTs for ${country.name}`);
 
   // --- Districts ----------------------------------------------------------
   const indicatorRows: {
@@ -193,7 +208,7 @@ async function main() {
   for (const r of dataRows) {
     const censusCode = int(r[idx.get('District code')!]);
     const name = r[idx.get('District name')!]?.trim();
-    const stateName = titleCase(r[idx.get('State name')!]);
+    const stateName = titleCase(r[idx.get('State name')!] ?? '');
     if (censusCode == null || !name) continue;
 
     const stateId = stateIdByName.get(stateName);
@@ -209,9 +224,12 @@ async function main() {
     const households = get('Households');
 
     const district = await prisma.district.upsert({
-      where: { censusCode },
+      // District codes restart at 1 in every country, so the upsert key is the
+      // pair, not the code alone.
+      where: { countryId_censusCode: { countryId: country.id, censusCode } },
       create: {
         censusCode,
+        countryId: country.id,
         name,
         stateId,
         population,

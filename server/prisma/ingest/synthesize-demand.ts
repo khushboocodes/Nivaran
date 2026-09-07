@@ -62,8 +62,18 @@ function mulberry32(seed: number): () => number {
 const rand = mulberry32(SEED);
 
 /** Pick a random element. */
+/**
+ * Pick a random element.
+ *
+ * Throws on an empty array rather than returning undefined. Every caller passes
+ * a non-empty literal list, so an empty one means a template table was
+ * mis-keyed — better to fail the ingest loudly than to write thousands of rows
+ * built from `undefined`.
+ */
 function pick<T>(xs: readonly T[]): T {
-  return xs[Math.floor(rand() * xs.length)];
+  const hit = xs[Math.floor(rand() * xs.length)];
+  if (hit === undefined) throw new Error('[demand] pick() called with an empty list');
+  return hit;
 }
 
 /**
@@ -419,7 +429,12 @@ async function main() {
     if (rand() < exact - n) n += 1;
     if (n <= 0) continue;
 
+    // The fallback is itself an index into TEMPLATES, so it needs its own guard
+    // — otherwise a renamed 'Water Supply' key would silently yield undefined.
     const templates = TEMPLATES[cell.category] ?? TEMPLATES['Water Supply'];
+    if (!templates || templates.length === 0) {
+      throw new Error(`[demand] no complaint templates for category "${cell.category}"`);
+    }
 
     for (let k = 0; k < n; k++) {
       const t = pick(templates);

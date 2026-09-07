@@ -1,0 +1,18 @@
+{
+  // Typecheck the seed, ingest and maintenance scripts.
+  //
+  // The main tsconfig includes only `src/**/*`, because `prisma/` and `scripts/`
+  // are run directly with tsx and never compiled into `dist`. The side effect was
+  // that they were never typechecked at all — so a schema change could leave the
+  // census ingest calling `district.upsert({ where: { censusCode } })` against a
+  // key that no longer existed, and nothing would say so until the script was run
+  // against a real database.
+  //
+  // Separate file rather than widening the main `include`, so build output stays
+  // exactly what it was.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["prisma/**/*.ts", "scripts/**/*.ts", "src/**/*", "../shared/src/**/*"]
+}

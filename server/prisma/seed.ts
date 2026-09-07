@@ -23,7 +23,17 @@ const DEMO = {
   },
 };
 
-async function ensureUser(input: typeof DEMO.citizen): Promise<{ created: boolean }> {
+/** Shape shared by every seeded demo account. */
+interface SeedUser {
+  email: string;
+  password: string;
+  name: string;
+  phone: string | null;
+  city: string | null;
+  role: 'citizen' | 'officer' | 'admin';
+}
+
+async function ensureUser(input: SeedUser): Promise<{ created: boolean }> {
   const existing = await prisma.user.findUnique({ where: { email: input.email } });
   if (existing) return { created: false };
   const passwordHash = await hashPassword(input.password);

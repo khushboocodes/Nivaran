@@ -300,23 +300,73 @@ model PasswordResetToken {
 // about them; it never invents a number. See services/planning.
 // ---------------------------------------------------------------------------
 
+/// A country, above the state/province tier.
+///
+/// WHY THIS EXISTS
+/// Rule 04 asks for solutions "built for one context but scalable to others
+/// across BRICS nations". The administrative hierarchy was already generic —
+/// state and district map cleanly onto Estado/Município in Brazil,
+/// Oblast/Rayon in Russia, Province/Prefecture in China, Province/District
+/// Municipality in South Africa. What actually blocked a second country was not
+/// the shape of the data but three *global* unique constraints: `states.name`,
+/// `states.census_code` and `districts.census_code`. A Brazilian municipality
+/// code of 1 would have collided with Indian census district 1, so a second
+/// country was impossible however generic the model looked.
+///
+/// Those constraints are now scoped per country, which is the difference
+/// between portable in principle and portable in fact.
+model Country {
+  id        String     @id @default(cuid())
+  /// ISO 3166-1 alpha-2, e.g. 'IN', 'BR', 'ZA'. The natural upsert key.
+  iso2      String     @unique
+  /// ISO 3166-1 alpha-3. Kept because several statistical sources key on
+  /// alpha-3 rather than alpha-2.
+  iso3      String?    @unique
+  name      String
+  /// ISO 4217 code, e.g. 'INR'. Investment figures are meaningless without
+  /// knowing what currency they are denominated in.
+  currency  String     @default("INR")
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  states    State[]
+  districts District[]
+
+  @@map("countries")
+}
+
 model State {
   id         String     @id @default(cuid())
-  name       String     @unique
-  /// Census 2011 state code. Nullable because union territories and states
-  /// reorganised after 2011 may not carry one.
-  censusCode Int?       @unique @map("census_code")
+  countryId  String     @map("country_id")
+  country    Country    @relation(fields: [countryId], references: [id])
+  name       String
+  /// National statistical code for this state. Named for the Census because
+  /// that is the Indian source, but it holds whatever code the country's own
+  /// statistical agency publishes. Nullable because union territories and
+  /// states reorganised after 2011 may not carry one.
+  censusCode Int?       @map("census_code")
   createdAt  DateTime   @default(now()) @map("created_at")
 
   districts  District[]
 
+  /// Scoped per country, not global: two countries may legitimately share a
+  /// state name or a numeric code.
+  @@unique([countryId, name])
+  @@unique([countryId, censusCode])
   @@map("states")
 }
 
 model District {
   id              String   @id @default(cuid())
-  /// Census 2011 district code (1..640). The upsert key for census ingest.
-  censusCode      Int      @unique @map("census_code")
+  /// Denormalised from `state.countryId`.
+  ///
+  /// Carried directly so the code below can be scoped per country without a
+  /// join, and so `@@unique([countryId, censusCode])` is expressible at all —
+  /// a composite unique cannot reach through a relation.
+  countryId       String   @map("country_id")
+  country         Country  @relation(fields: [countryId], references: [id])
+  /// National statistical code for this district (1..640 for Census 2011
+  /// India). The upsert key for ingest, scoped per country.
+  censusCode      Int      @map("census_code")
   /// Local Government Directory code. Reserved for joining scheme-level data
   /// such as Jal Jeevan Mission, which keys on LGD rather than census codes.
   lgdCode         String?  @unique @map("lgd_code")
@@ -346,8 +396,11 @@ model District {
   complaints      Complaint[]
   recommendations Recommendation[]
 
+  /// Scoped per country. Two countries number their districts from 1.
+  @@unique([countryId, censusCode])
   @@index([stateId])
   @@index([name])
+  @@index([countryId])
   @@map("districts")
 }
 
