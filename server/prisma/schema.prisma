@@ -44,6 +44,26 @@ enum NotificationType {
   escalated
 }
 
+/// How a complaint reached the platform.
+///
+/// Problem statement 01 asks for intake "via voice, text, and messaging apps",
+/// so the channel is recorded as a first-class dimension rather than inferred.
+/// It also makes "which channel do citizens actually use" an answerable
+/// question, which matters when arguing that a messaging-app route reaches
+/// people a web form does not.
+///
+/// `modelled` is deliberately part of this enum. The demand corpus is
+/// synthetic, and calling those rows `web` would be a quiet lie about how they
+/// arrived. `isSynthetic` already flags them; this keeps the channel honest too.
+enum IntakeChannel {
+  web
+  voice
+  telegram
+  whatsapp
+  sms
+  modelled
+}
+
 enum AttachmentKind {
   photo
   video
@@ -61,6 +81,12 @@ model User {
   language           String        @default("en")
   twoFactorEnabled   Boolean       @default(false) @map("two_factor_enabled")
   twoFactorSecret    String?       @map("two_factor_secret")
+  /// Telegram chat id, when this account was provisioned from a messaging app.
+  ///
+  /// Unique so a returning sender maps back to the same citizen rather than
+  /// accumulating a new account per message. Null for everyone who signed up
+  /// through the web.
+  telegramChatId     String?       @unique @map("telegram_chat_id")
   departmentId       String?       @map("department_id")
   department         Department?   @relation(fields: [departmentId], references: [id])
   createdAt          DateTime      @default(now()) @map("created_at")
@@ -119,6 +145,8 @@ model Complaint {
   // Surfaced in the UI and in ATTRIBUTIONS.md so real and modelled demand are
   // never conflated.
   isSynthetic           Boolean       @default(false) @map("is_synthetic")
+  /// Which intake route produced this complaint. See IntakeChannel.
+  channel               IntakeChannel @default(web)
 
   // Original-language transcript of a voice submission, before translation.
   // Kept alongside the translated description so multilingual intake is

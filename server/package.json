@@ -18,7 +18,8 @@
     "backfill:ai": "tsx prisma/backfill-ai.ts",
     "ingest:census": "tsx prisma/ingest/census2011.ts",
     "ingest:demand": "tsx prisma/ingest/synthesize-demand.ts",
-    "planning:briefs": "tsx scripts/generate-briefs.ts"
+    "planning:briefs": "tsx scripts/generate-briefs.ts",
+    "telegram:setup": "tsx scripts/telegram-setup.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

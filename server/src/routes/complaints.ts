@@ -19,6 +19,7 @@ import {
 import { centroidFor } from '../services/planning/state-centroids';
 import { loadSettings } from '../services/settings';
 import { resolveDistrict } from '../services/districts';
+import { createComplaintFromIntake } from '../services/intake';
 import { sendComplaintEvent } from '../services/email';
 import { sendSms } from '../services/sms';
 import attachments from './attachments';
@@ -518,92 +519,34 @@ complaints.post('/', async (c) => {
   if (!parsed.success) {
     return c.json({ code: 'invalid_input', details: parsed.error.flatten() }, 400);
   }
-  const { title, description, category, language, location, lat, lng } = parsed.data;
-  const departmentId = await resolveDepartmentByCategory(category);
-
-  // Attach a district so the complaint reaches the planning layer and the
-  // heatmap, not just the national counters. Citizens never pick a district, so
-  // it is inferred from the free-text location, falling back to their profile
-  // city. Returns null rather than guessing when the name is ambiguous — a wrong
-  // district would feed another region's demand signal and distort a funding
-  // recommendation, which is worse than no district at all.
-  const author = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { city: true },
+  // Delegated to the shared intake adapter so the web form, voice intake and
+  // messaging apps all run the identical process: classify, route to a
+  // department, resolve a district, record, notify, audit. See services/intake.
+  //
+  // The channel is derived rather than trusted from the client: a submission
+  // carrying an original-language transcript came from the microphone, whatever
+  // the request claims.
+  const created = await createComplaintFromIntake({
+    citizenId: user.id,
+    channel: parsed.data.sourceTranscript ? 'voice' : 'web',
+    title: parsed.data.title,
+    description: parsed.data.description,
+    category: parsed.data.category,
+    language: parsed.data.language,
+    location: parsed.data.location,
+    lat: parsed.data.lat,
+    lng: parsed.data.lng,
+    priority: parsed.data.priority,
+    sentiment: parsed.data.sentiment,
+    aiConfidence: parsed.data.aiConfidence,
+    aiSummary: parsed.data.aiSummary,
+    sourceTranscript: parsed.data.sourceTranscript,
+    sourceLanguage: parsed.data.sourceLanguage,
   });
-  const districtMatch = await resolveDistrict(location, author?.city);
-  if (districtMatch) {
-    console.log(
-      `[complaints] mapped to ${districtMatch.districtName}, ${districtMatch.stateName} ` +
-        `via ${districtMatch.matchedOn} "${districtMatch.token}"`,
-    );
-  }
-
-  // Use a transaction so the complaint and its first notification land atomically.
-  const created = await prisma.$transaction(async (tx) => {
-    const complaint = await tx.complaint.create({
-      data: {
-        title,
-        description,
-        category,
-        language,
-        location,
-        lat,
-        lng,
-        citizenId: user.id,
-        departmentId,
-        // Null when the location could not be resolved confidently. The complaint
-        // still counts nationally, it just does not appear in district aggregates.
-        districtId: districtMatch?.districtId ?? null,
-        // Persist the optional AI fields when the client provided them so
-        // the citizen dashboard's "AI Confidence" tile reflects real data.
-        ...(parsed.data.priority !== undefined ? { priority: parsed.data.priority } : {}),
-        ...(parsed.data.sentiment !== undefined
-          ? { sentiment: parsed.data.sentiment === 'Highly Negative' ? 'HighlyNegative' : parsed.data.sentiment }
-          : {}),
-        ...(parsed.data.aiConfidence !== undefined ? { aiConfidence: parsed.data.aiConfidence } : {}),
-        ...(parsed.data.aiSummary !== undefined ? { aiSummary: parsed.data.aiSummary } : {}),
-        // Voice intake provenance: the original-language transcript is stored
-        // next to the translated description so the record stays auditable.
-        ...(parsed.data.sourceTranscript !== undefined
-          ? { sourceTranscript: parsed.data.sourceTranscript }
-          : {}),
-        ...(parsed.data.sourceLanguage !== undefined
-          ? { sourceLanguage: parsed.data.sourceLanguage }
-          : {}),
-      },
-      include: { department: { select: { name: true } } },
-    });
-    await tx.notification.create({
-      data: {
-        userId: user.id,
-        type: 'submitted',
-        message: `Your complaint "${complaint.title}" has been successfully submitted`,
-        complaintId: complaint.id,
-      },
-    });
-    await audit(
-      {
-        actorId: user.id,
-        action: 'complaint.create',
-        entity: 'complaint',
-        entityId: complaint.id,
-        before: null,
-        after: serializeComplaint(complaint),
-      },
-      tx,
-    );
-    return complaint;
-  });
-
-  void emitComplaintEmail(
-    created,
-    'submitted',
-    `Your complaint "${created.title}" has been successfully submitted`,
-  );
 
   return c.json(serializeComplaint(created), 201);
 });
+
 
 complaints.get('/:id', async (c) => {
   const user = getUser(c);

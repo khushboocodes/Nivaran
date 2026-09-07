@@ -14,6 +14,7 @@ import reports from './routes/reports';
 import planning from './routes/planning';
 import uploads from './routes/uploads';
 import geo from './routes/geo';
+import telegram from './routes/telegram';
 import { sessionMiddleware } from './auth/middleware';
 import { startSlaScheduler } from './services/sla';
 import { storageDriver } from './services/storage';
@@ -60,6 +61,11 @@ app.use(
 // in for. Skipping the middleware also avoids a pointless user lookup on
 // every image request a page makes.
 app.route('/api/uploads', uploads);
+
+// Messaging-app intake. Mounted ahead of the session middleware because
+// Telegram has no session: the webhook authenticates with the secret token it
+// echoes back on every update, and the citizen is resolved from the chat id.
+app.route('/api/telegram', telegram);
 
 app.use('*', sessionMiddleware);
 
