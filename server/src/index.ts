@@ -70,6 +70,21 @@ app.route('/api/telegram', telegram);
 app.use('*', sessionMiddleware);
 
 /**
+ * Build identity, reported by /api/ready.
+ *
+ * Without this, "is my change actually deployed?" is unanswerable from
+ * outside the platform dashboard — two builds of the same service are
+ * indistinguishable over HTTP, so a green health check proves nothing about
+ * which commit is serving. `RENDER_GIT_COMMIT` is injected by Render;
+ * `GIT_COMMIT` is the generic fallback for any other host.
+ *
+ * `uptimeSec` distinguishes a container that has been up for hours from one
+ * that just cold-started, which is the difference between a fast response
+ * and a fast response that a visitor waited a minute for.
+ */
+const commit = (process.env.RENDER_GIT_COMMIT ?? process.env.GIT_COMMIT ?? 'unknown').slice(0, 7);
+
+/**
  * Readiness probe: confirms the process can actually reach its database.
  *
  * Returns 503 with the failure reason when the database is unreachable, so a
@@ -78,12 +93,13 @@ app.use('*', sessionMiddleware);
  * connection errors name the host and port, never credentials.
  */
 app.get('/api/ready', async (c) => {
+  const build = { commit, uptimeSec: Math.round(process.uptime()) };
   try {
     await prisma.$queryRaw`SELECT 1`;
-    return c.json({ ok: true, database: 'up', ts: Date.now() });
+    return c.json({ ok: true, database: 'up', ...build, ts: Date.now() });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return c.json({ ok: false, database: 'down', error: message, ts: Date.now() }, 503);
+    return c.json({ ok: false, database: 'down', error: message, ...build, ts: Date.now() }, 503);
   }
 });
 
