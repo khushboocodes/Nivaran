@@ -6,8 +6,9 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "start": "node --enable-source-maps dist/index.js",
-    "build": "tsc -p tsconfig.json",
+    "start": "node --enable-source-maps dist/server.js",
+    "build": "node esbuild.config.mjs",
+    "typecheck": "tsc -p tsconfig.json",
     "typecheck:scripts": "tsc -p tsconfig.scripts.json",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
@@ -42,6 +43,7 @@
   },
   "devDependencies": {
     "@types/node": "22.10.2",
+    "esbuild": "0.23.1",
     "prisma": "^5.22.0",
     "tsx": "4.19.2",
     "typescript": "5.7.2"

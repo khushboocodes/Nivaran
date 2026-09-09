@@ -4,8 +4,9 @@
 # Multi-stage build for the Nivaran API server.
 #
 # The repo is a multi-workspace project: server depends on shared. We copy
-# both into the build stage, generate the Prisma client, compile TS to JS,
-# and ship the JS plus the production-only node_modules in a slim runtime.
+# both into the build stage, generate the Prisma client, bundle the server
+# (and the shared package) into one JS file, and ship that bundle plus
+# node_modules in a slim runtime.
 #
 # Build context: the repository root (so `shared/` is reachable).
 # Build:  docker build -f server/Dockerfile -t nivaran-server .
@@ -36,9 +37,11 @@ WORKDIR /repo
 COPY shared ./shared
 COPY server ./server
 
-# Generate the Prisma client against the bundled engine before compiling.
+# Generate the Prisma client against the bundled engine, then bundle the
+# server into a single JS file with esbuild. See server/esbuild.config.mjs for
+# why esbuild and not tsc: the tsc output was not runnable by Node.
 RUN cd server && npx prisma generate \
-    && npx tsc -p tsconfig.json
+    && npm run build
 
 # --- 3. runtime ----------------------------------------------------------
 FROM node:20-bookworm-slim AS runtime
@@ -52,25 +55,22 @@ RUN apt-get update \
 ENV NODE_ENV=production
 ENV PORT=3001
 
-# Copy compiled output, the generated Prisma client, the migrations folder
-# (so `prisma migrate deploy` works), and only the production server deps.
+# The self-contained bundle, the node_modules holding the external runtime
+# deps and the generated Prisma client, the migrations folder (so
+# `prisma migrate deploy` works), and the manifest.
+#
+# The TypeScript sources are deliberately NOT copied: nothing at runtime reads
+# them any more. `@nivaran/shared` is inlined into the bundle, and the copy
+# under node_modules is kept only so an ad-hoc maintenance script
+# (`npx tsx prisma/seed-staff.ts`) can still resolve the alias inside the
+# container.
 COPY --from=build /repo/server/dist ./dist
 COPY --from=build /repo/server/node_modules ./node_modules
-COPY --from=build /repo/server/src ./src
 COPY --from=build /repo/server/prisma ./prisma
 COPY --from=build /repo/server/package.json ./package.json
-COPY --from=build /repo/server/tsconfig.json ./tsconfig.json
-# Keep the relative-path copy for the tsconfig alias, AND install the shared
-# package into node_modules so tsx resolves `@nivaran/shared` either way.
-COPY --from=build /repo/shared ../shared
 COPY --from=build /repo/shared ./node_modules/@nivaran/shared
 
 EXPOSE 3001
-
-# tsx runs the TypeScript source directly — handles path aliases and ESM
-# resolution without the compiled-JS extension problems. Install globally so
-# it's reliably on PATH and not re-downloaded at boot.
-RUN npm install -g tsx@4.19.2
 
 # Migrations run on boot, but a migration failure must NOT stop the server
 # from listening. With `&&`, an unreachable or expired database meant the
@@ -79,4 +79,10 @@ RUN npm install -g tsx@4.19.2
 # response, so the API looked hung rather than broken and the browser sat on
 # a blank page. Starting regardless turns that silent hang into an
 # HTTP-level failure that `/api/health` and `/api/ready` can explain.
-CMD sh -c "npx prisma migrate deploy || echo '[boot] prisma migrate deploy FAILED — starting the server anyway so /api/health and /api/ready can report the fault'; exec tsx src/index.ts"
+#
+# The migration step calls the CLI binary directly rather than through `npx`,
+# which would re-resolve the package on every boot, and the server starts from
+# the prebuilt bundle rather than transpiling TypeScript at startup. Both sit
+# on the critical path of a cold start, which on a free instance that spins
+# down after 15 minutes idle is latency paid by the next visitor.
+CMD sh -c "./node_modules/.bin/prisma migrate deploy || echo '[boot] prisma migrate deploy FAILED — starting the server anyway so /api/health and /api/ready can report the fault'; exec node --enable-source-maps dist/server.js"

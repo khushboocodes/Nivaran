@@ -69,7 +69,16 @@ jobs:
         run: npx --prefix server prisma migrate deploy
         working-directory: server
 
-      - name: Type-check & build server
+      # Type-checking and bundling are separate steps now: tsc only checks
+      # types (its emit was never runnable under Node's ESM loader) and
+      # esbuild produces the JS the container actually boots.
+      - name: Type-check server
+        run: npm --prefix server run typecheck
+
+      - name: Type-check server scripts
+        run: npm --prefix server run typecheck:scripts
+
+      - name: Build server bundle
         run: npm --prefix server run build
 
       - name: Build web client

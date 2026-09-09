@@ -234,8 +234,10 @@ backfill:ai REM Re-run AI classifier on every existing complaint
 ingest:census REM Load Census 2011 district data (640 districts, 6,400 indicators)
 ingest:demand REM Generate the modelled district demand corpus
 planning:briefs REM Pre-generate Gemini policy briefings for the top-ranked districts
-build REM Compile TS to dist/
-start REM Run compiled server
+typecheck REM Type-check src/ (no output — tsc never emits here)
+typecheck:scripts REM Type-check prisma/ and scripts/
+build REM Bundle the server to dist/server.js with esbuild
+start REM Run the bundled server
 
 To bring the planning layer up from an empty database:
 

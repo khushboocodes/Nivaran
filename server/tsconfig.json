@@ -9,10 +9,12 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "outDir": "dist",
-    "rootDir": "..",
-    "sourceMap": true,
-    "declaration": false,
+    // Type-checking only. Production JavaScript is produced by
+    // esbuild.config.mjs, because `moduleResolution: "Bundler"` lets the
+    // source use extensionless imports that tsc emits verbatim and Node's
+    // ESM loader then refuses to resolve. Emitting from here produced a
+    // `dist` tree that could not actually be run.
+    "noEmit": true,
     "noUncheckedIndexedAccess": true,
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
