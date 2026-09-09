@@ -29,15 +29,50 @@ interface DistrictKey {
 }
 
 /**
- * Name to district, built once per process.
+ * Name to district, cached per country and built once per process.
  *
  * 640 rows is small enough to hold in memory and districts change on the scale of
  * years, so a per-request query would be pure waste.
+ *
+ * WHY THIS IS KEYED BY COUNTRY
+ * ----------------------------
+ * It used to be one global map over every district row. That was harmless while
+ * only India was loaded, and would have broken quietly the moment a second
+ * country arrived: any district name occurring in both countries would land in
+ * `ambiguous` and be discarded, so Indian complaints naming those places would
+ * stop resolving. Nothing would error — district-mapped counts would just fall,
+ * and the planning layer would go thinner for reasons nobody could see.
+ *
+ * Ambiguity is a real concern *within* a country (Aurangabad is in both
+ * Maharashtra and Bihar) and meaningless *across* one, so the scope of the
+ * lookup has to match the scope of the question.
  */
-let cache: Map<string, DistrictKey> | null = null;
+interface CountryIndex {
+  byName: Map<string, DistrictKey>;
+  ambiguous: Set<string>;
+}
 
-/** Ambiguous names are dropped from the cache — see `buildCache`. */
-let ambiguous: Set<string> = new Set();
+const cacheByCountry = new Map<string, CountryIndex>();
+
+/**
+ * The country intake belongs to, when a caller does not name one.
+ *
+ * A deployment serves one country's citizens even though the planning layer can
+ * hold several, so this is configuration rather than a parameter on every
+ * complaint.
+ */
+const DEFAULT_COUNTRY_ISO2 = (process.env.DEFAULT_COUNTRY_ISO2 ?? 'IN').toUpperCase();
+let defaultCountryIdPromise: Promise<string | null> | null = null;
+
+function defaultCountryId(): Promise<string | null> {
+  if (!defaultCountryIdPromise) {
+    defaultCountryIdPromise = prisma.country
+      .findUnique({ where: { iso2: DEFAULT_COUNTRY_ISO2 }, select: { id: true } })
+      .then((c) => c?.id ?? null)
+      .catch(() => null);
+  }
+  return defaultCountryIdPromise;
+}
 
 function normalise(s: string): string {
   return s
@@ -47,10 +82,12 @@ function normalise(s: string): string {
     .trim();
 }
 
-async function buildCache(): Promise<Map<string, DistrictKey>> {
-  if (cache) return cache;
+async function buildCache(countryId: string): Promise<CountryIndex> {
+  const cached = cacheByCountry.get(countryId);
+  if (cached) return cached;
 
   const districts = await prisma.district.findMany({
+    where: { countryId },
     select: { id: true, name: true, state: { select: { name: true } } },
   });
 
@@ -72,16 +109,16 @@ async function buildCache(): Promise<Map<string, DistrictKey>> {
   }
 
   for (const key of seenTwice) byName.delete(key);
-  ambiguous = seenTwice;
 
-  cache = byName;
-  return byName;
+  const index: CountryIndex = { byName, ambiguous: seenTwice };
+  cacheByCountry.set(countryId, index);
+  return index;
 }
 
 /** Drop the cache. Call after ingesting districts within the same process. */
 export function resetDistrictCache(): void {
-  cache = null;
-  ambiguous = new Set();
+  cacheByCountry.clear();
+  defaultCountryIdPromise = null;
 }
 
 export interface DistrictMatch {
@@ -107,8 +144,23 @@ export interface DistrictMatch {
 export async function resolveDistrict(
   location?: string | null,
   city?: string | null,
+  /**
+   * Country to resolve within. Defaults to the deployment's country.
+   *
+   * Names are only ever matched inside one country: "Aurangabad" is ambiguous
+   * between two Indian states and must stay unresolved, but it is not made
+   * ambiguous by a same-named place in another country.
+   */
+  countryId?: string,
 ): Promise<DistrictMatch | null> {
-  const byName = await buildCache();
+  const resolvedCountryId = countryId ?? (await defaultCountryId());
+  if (!resolvedCountryId) {
+    // No country row at all — a database that has not been ingested yet. Return
+    // null rather than throwing: an unmapped complaint is recoverable, a failed
+    // submission is not.
+    return null;
+  }
+  const { byName, ambiguous } = await buildCache(resolvedCountryId);
 
   const candidates: { text: string; source: 'location' | 'city' }[] = [];
   if (location?.trim()) candidates.push({ text: location, source: 'location' });

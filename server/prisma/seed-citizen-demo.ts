@@ -396,8 +396,11 @@ async function main() {
   };
 
   const districtNames = [...new Set(FIXTURES.map((f) => f.district))];
+  // Scoped to India: the fixtures name Indian districts, and matching on name
+  // alone would become ambiguous the moment another country shares one.
+  const country = await prisma.country.findUnique({ where: { iso2: 'IN' } });
   const districts = await prisma.district.findMany({
-    where: { name: { in: districtNames } },
+    where: { name: { in: districtNames }, ...(country ? { countryId: country.id } : {}) },
     select: { id: true, name: true },
   });
   const districtIdByName = new Map(districts.map((d) => [d.name, d.id]));

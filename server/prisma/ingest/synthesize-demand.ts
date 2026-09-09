@@ -290,7 +290,16 @@ async function main() {
   console.log(`[demand] target corpus size: ${targetCount.toLocaleString()}`);
 
   // --- Preconditions ------------------------------------------------------
+  // Scoped to one country. The complaint templates below are Indian, in Indian
+  // languages, so generating them against another country's districts would
+  // manufacture demand signal for the wrong nation. Once the planning layer
+  // holds more than one country an unscoped query would do exactly that.
+  const country = await prisma.country.findUnique({ where: { iso2: 'IN' } });
+  if (!country) {
+    throw new Error('[demand] no country row for IN. Run `npm --prefix server run ingest:census` first.');
+  }
   const districts = await prisma.district.findMany({
+    where: { countryId: country.id },
     select: { id: true, name: true, households: true, population: true },
   });
   if (districts.length === 0) {

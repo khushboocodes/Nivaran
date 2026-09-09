@@ -229,6 +229,33 @@ export function scoreCells(cells: DemandCell[], weights: Weights = DEFAULT_WEIGH
     // Null, not zero, when we genuinely have no investment data. Zero would
     // read as "fully funded" and silently push deprived districts down the
     // ranking — the opposite of the truth.
+    //
+    // WHY THIS IS CURRENTLY NULL FOR EVERY DISTRICT
+    // --------------------------------------------
+    // No district-level, rupee-denominated public investment dataset proved
+    // obtainable. Four sources were investigated; each failed on its own terms:
+    //
+    //   1. AIKosh "JJM Village Scheme Infrastructure Data" — visibility
+    //      Restricted, download request stayed pending.
+    //   2. data.gov.in resource API — needs an API key, and registration
+    //      delegates to the JanParichay SSO whose signup routes return 404.
+    //   3. AIKosh "District-wise MGNREGA Data at a Glance" — obtained and
+    //      inspected. 28 metric columns and *no identifier column at all*: no
+    //      district, no state, no code, no period. Its own published metadata
+    //      declares "Primary Key / Indicator: N.A." and "Geographical
+    //      Coverage: Country", and the file holds 29 rows rather than 640 —
+    //      state-level aggregate despite the "District-wise" title. Using it
+    //      would have meant inferring identity from row order, i.e. inventing
+    //      the join key. Licence is also declared "NA".
+    //   4. nrega.nic.in public reports — reachable without authentication, but
+    //      served as ASP.NET pages with viewstate, so district figures would
+    //      need scraping per state.
+    //
+    // So the component is wired, weighted and tested, and reports honestly that
+    // it has nothing to say. Weights renormalise across the components that do
+    // have data, so the ranking never treats an unmeasured factor as a measured
+    // zero, and the UI renders a hatched "no data" bar rather than an empty one.
+    // Any district-keyed source populates this without touching the scoring.
     let investmentDeficitScore: number | null = null;
     if (medianPerCapita != null && medianPerCapita > 0 && cell.population && cell.population > 0) {
       if (cell.sanctionedLakh != null) {
