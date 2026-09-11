@@ -277,6 +277,95 @@ NITI Aayog Aspirational Districts, which the system was never told about.
 - Opt-in telemetry banner (PostHog-ready, console by default)
 - Dockerfile + GitHub Actions CI
 
+## 📡 API Reference
+
+### Health & System Probes
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/health` | Light liveness probe (event loop check) |
+| `GET` | `/api/ready` | Readiness probe (Postgres connection, git commit, uptime) |
+
+### Auth & Session
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/api/auth/signup` | Register a new citizen account |
+| `POST` | `/api/auth/login` | Authenticate user (returns HTTP-only JWT cookie, supports TOTP 2FA) |
+| `POST` | `/api/auth/logout` | Invalidate session & clear HTTP-only session cookie |
+| `GET` | `/api/auth/me` | Fetch current authenticated session user profile |
+| `POST` | `/api/auth/2fa/enroll` | Generate TOTP 2FA secret & OTPAuth URI (Admin role required) |
+| `POST` | `/api/auth/2fa/verify` | Verify TOTP code and finalize 2FA enrollment |
+| `POST` | `/api/auth/forgot` | Request password reset token sent via email |
+| `POST` | `/api/auth/reset` | Reset account password using one-time token |
+
+### Citizen Grievance Management
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/complaints` | Fetch complaints (supports search `q`, `page`, `pageSize`, `status`, `priority`, `dept` filter) |
+| `POST` | `/api/complaints` | Submit a new complaint (with title, category, description, language, location, geocoordinates, AI fields) |
+| `GET` | `/api/complaints/:id` | Fetch detailed complaint record by ID |
+| `PATCH` | `/api/complaints/:id` | Update complaint status, priority, category, or assigned officer |
+| `POST` | `/api/complaints/:id/escalate` | Manually escalate complaint priority to Critical |
+| `POST` | `/api/complaints/:id/resolve` | Mark complaint as resolved |
+
+### AI & Multimodal Intake
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/api/ai/classify` | Gemini AI triage (category, department, priority, sentiment, summary, language ID) |
+| `POST` | `/api/ai/voice` | Gemini multimodal voice intake (transcribe, detect language, translate, draft complaint) |
+| `POST` | `/api/ai/chat` | Streamed Gemini AI assistant chatbot conversation (Server-Sent Events) |
+
+### National Demand Intelligence (Planning)
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/planning/districts` | Fetch 640 Indian districts ranked by demand intensity & infrastructure gap |
+| `GET` | `/api/planning/districts/:id` | Fetch detailed district profile & Census 2011 indicators |
+| `GET` | `/api/planning/districts/:id/brief` | Grounded Gemini AI policy briefing & rationale |
+| `POST` | `/api/planning/recalculate` | Re-rank districts with custom component weights (demand, gap, investment, equity) |
+
+### Attachments & Uploads
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `PUT` | `/api/uploads/:key` | Direct byte upload for photo, video, or audio attachments (HMAC token auth) |
+| `GET` | `/api/uploads/:key` | Public media content retrieval |
+
+### User Management
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/users` | List platform users & roles (Admin only) |
+| `POST` | `/api/users/invite` | Invite new officer or staff member |
+| `PATCH` | `/api/users/:id` | Modify user role or department scope |
+| `PUT` | `/api/users/profile` | Update profile information (name, phone, city, language) |
+| `PUT` | `/api/users/password` | Change authenticated account password |
+
+### Feedback & Ratings
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/api/feedback` | Submit star rating (1–5) and comment on a resolved complaint |
+| `GET` | `/api/feedback` | Fetch user's submitted feedback records |
+| `GET` | `/api/feedback/stats` | Aggregate feedback statistics (average, distribution, rating by category) |
+
+### Notifications & Audit
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/notifications` | Fetch user notifications & unread badge count |
+| `POST` | `/api/notifications/:id/read` | Mark single notification as read |
+| `POST` | `/api/notifications/read-all` | Mark all notifications as read |
+| `GET` | `/api/audit` | Query audit trail log (filtered by actor, entity, date; supports CSV export) |
+
+### Reports & Analytics
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/reports` | Generate complaint report (JSON, CSV, or PDF formats) |
+| `POST` | `/api/reports/ai-summary` | Generate Gemini AI narrative summary of complaint patterns |
+
+### Admin Settings & Integrations
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/settings` | Fetch platform settings & SLA configuration |
+| `PUT` | `/api/settings` | Update system settings (notification toggles, SLA threshold, AI flags) |
+| `GET` | `/api/geo/reverse` | Reverse geocode lat/lng to Indian address and district via Nominatim proxy |
+| `POST` | `/api/telegram/webhook` | Telegram Bot API webhook for messaging intake |
+
 ## 🏗️ Architecture
 
 All diagrams below are Mermaid, so they render inline on GitHub. Every box
@@ -829,6 +918,231 @@ for the four data sources attempted and why each was rejected.
 ├── docker-compose.yml # Postgres + MinIO
 ├── .github/workflows/ci.yml
 └── docs/operations.md # Env vars, migrations, backups, ops checklist
+
+## 📡 API Reference
+
+**Base URL** — `http://localhost:3001` locally, `https://nivaran-cly5.onrender.com` in production.
+Every route is prefixed `/api`.
+
+**Authentication** — an `httpOnly` JWT cookie (`nivaran_session`, JOSE-signed,
+168 h TTL) set by `POST /api/auth/login`. There is no bearer-token mode; send
+cookies with `credentials: 'include'`. Two routes bypass the session middleware
+entirely because they carry their own credential: `/api/uploads` (HMAC-signed
+token) and `/api/telegram` (bot secret).
+
+**Access legend**
+
+| | Meaning |
+| --- | --- |
+| 🌐 | Public — no session needed |
+| 🔓 | Any signed-in user |
+| 👤 | Signed in, but scoped to your own records |
+| 👷 | Officer + Admin (citizens get `403`) |
+| 🏛️ | Admin only |
+| 🔑 | Signed token, no session |
+| 🤖 | Telegram bot secret |
+
+> [!NOTE]
+> Officers are additionally confined to **their own department** on every
+> officer/admin route, server-side. The `?dept=` parameter is honoured for
+> admins and silently ignored for officers, so an officer cannot widen their own
+> scope by editing a URL. See [`services/scope.ts`](server/src/services/scope.ts).
+
+### 🩺 Health & readiness
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/health` | 🌐 | Liveness. Reads nothing but the event loop — mounted before all middleware so a dead database cannot look like a dead process |
+| `GET` | `/api/ready` | 🌐 | Readiness. `200` with `{ database, commit, uptimeSec }`, or `503` naming the failure |
+
+### 🔐 Authentication
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/api/auth/signup` | 🌐 | Register a citizen account (Argon2id hash) |
+| `POST` | `/api/auth/login` | 🌐 | Sign in, sets the session cookie |
+| `POST` | `/api/auth/logout` | 🌐 | Clear the session cookie |
+| `GET` | `/api/auth/me` | 🔓 | Current user from the cookie |
+| `POST` | `/api/auth/2fa/enroll` | 🔓 | Begin TOTP enrolment, returns the secret |
+| `POST` | `/api/auth/2fa/verify` | 🔓 | Confirm a TOTP code and switch 2FA on |
+| `POST` | `/api/auth/forgot` | 🌐 | Issue a reset token (hashed at rest, single use, expiring) |
+| `POST` | `/api/auth/reset` | 🌐 | Redeem a reset token and set a new password |
+
+### 👤 Users & profile
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/users/me` | 🔓 | Own profile |
+| `PATCH` | `/api/users/me` | 🔓 | Update own name, phone, city, language |
+| `POST` | `/api/users/me/password` | 🔓 | Change own password |
+| `GET` | `/api/users` | 🏛️ | Staff directory + the department list, paginated |
+| `POST` | `/api/users` | 🏛️ | Create an officer or admin |
+| `PATCH` | `/api/users/:id` | 🏛️ | Change role or department — refuses to demote your own admin account |
+| `DELETE` | `/api/users/:id` | 🏛️ | Remove a staff account |
+
+### 📝 Complaints
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/complaints` | 👤 | List. Citizens see only their own; staff see their department |
+| `GET` | `/api/complaints/stats` | 👤 | Counters: total, pending, resolved, escalated, criticalOpen, overdue |
+| `GET` | `/api/complaints/geo` | 👷 | Map points for the heatmap |
+| `POST` | `/api/complaints` | 🔓 | File a complaint. Classifies, routes to a department, resolves a district, notifies and audits in one transaction |
+| `GET` | `/api/complaints/:id` | 👤 | Single complaint — `403` if it is not yours and you are a citizen |
+| `PATCH` | `/api/complaints/:id` | 👷 | Update status, priority, category |
+| `POST` | `/api/complaints/:id/assign` | 👷 | Assign to an officer |
+| `POST` | `/api/complaints/:id/escalate` | 👷 | Raise priority and notify |
+| `POST` | `/api/complaints/:id/resolve` | 👷 | Mark resolved, stamp `resolvedAt` |
+
+**Query parameters for `GET /api/complaints`**
+
+| Param | Type | Notes |
+| --- | --- | --- |
+| `status` | enum | `Submitted` · `Under Review` · `Assigned` · `In Progress` · `Resolved` |
+| `priority` | enum | `Low` · `Medium` · `High` · `Critical` |
+| `q` | string | Free-text search |
+| `dept` | string | Department id, or `all`. Ignored for officers |
+| `overdue` | `true`/`false` | Unresolved past the SLA threshold, evaluated against the same setting the scheduler uses — so the Escalation Center and the scheduler can never disagree |
+| `openOnly` | `true`/`false` | Exclude `Resolved` |
+| `page` · `pageSize` | int | Paging, server-side |
+
+### 📎 Attachments
+
+Mounted under a complaint, so authorisation is inherited from it.
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/complaints/:id/attachments` | 👤 | List attachments for a complaint |
+| `POST` | `/api/complaints/:id/attachments/sign` | 👤 | Mint a short-lived signed upload URL |
+| `POST` | `/api/complaints/:id/attachments` | 👤 | Record an upload once the bytes have landed |
+
+### ⬆️ Raw upload transport
+
+Both bypass the session middleware — the PUT proves itself with its token.
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `PUT` | `/api/uploads/:key` | 🔑 | Receive file bytes against an HMAC-signed token. Stands in for a presigned S3 PUT |
+| `GET` | `/api/uploads/:key` | 🌐 | Serve the bytes back, matching public-read object storage |
+
+### 🔔 Notifications
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/notifications` | 🔓 | Own notifications with an unread count |
+| `POST` | `/api/notifications/:id/read` | 🔓 | Mark one read |
+| `POST` | `/api/notifications/read-all` | 🔓 | Mark every notification read |
+
+### ⭐ Feedback
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/feedback` | 👤 | Ratings — citizens see only their own |
+| `GET` | `/api/feedback/stats` | 👷 | Average rating and distribution |
+| `POST` | `/api/feedback` | 👤 | Rate a complaint. Only the citizen who filed it, and only once it is `Resolved` |
+
+### ✨ AI — all Gemini 2.5 Flash
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/api/ai/classify` | 🔓 | Category, department, priority, sentiment, summary, detected language |
+| `POST` | `/api/ai/chat` | 🔓 | Complaint-aware assistant, streamed back as Server-Sent Events |
+| `POST` | `/api/ai/voice` | 🔓 | Multimodal audio in, transcript + language + English translation + a drafted complaint out. Inline audio capped at 8 MB |
+
+### 🗺️ Geocoding
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/geo/reverse?lat=&lng=` | 🔓 | Coordinates → `{ label, locality, district, state }` via Nominatim. Authenticated deliberately, so it cannot be used as an open geocoding proxy against a free service we do not own |
+
+### 📊 Reports
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/reports` | 👷 | Aggregate report as JSON, CSV or PDF |
+
+`?type=category\|priority\|status\|department` (default `category`) ·
+`?days=1..3650` (default `30`) · `?format=json\|csv\|pdf` (default `json`) ·
+`?dept=<id>\|all`
+
+### 🧭 National planning
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/planning/meta` | 👷 | States, categories, current + default weights, and data coverage |
+| `GET` | `/api/planning/rank` | 👷 | Ranked district × category cells with all four sub-scores and `investmentDataAvailable` |
+| `GET` | `/api/planning/district/:id` | 👷 | One district: census indicators, demand, and its recommendations |
+| `GET` | `/api/planning/brief.pdf` | 👷 | Gemini-authored policy briefing as a PDF. Requires `?districtId=&category=` |
+
+**Weight overrides on `/rank`** — `wDemand`, `wGap`, `wInvestment`, `wEquity`,
+each `0..1`. Also `category`, `stateId`, `dept`, and `limit` (max `200`,
+default `25`). Weights are renormalised across the components that actually
+have data, so a missing component never acts as a measured zero.
+
+### 📜 Audit log
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/audit` | 🏛️ | Immutable trail with before/after JSON snapshots |
+
+Filters: `entity`, `entityId`, `actorId`, `action`, `from` / `to` (ISO
+datetimes), `page`, `pageSize` (max `200`), `format=json\|csv`, `dept`.
+
+### ⚙️ Settings
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/settings` | 🏛️ | AI, escalation, notification and general toggles, plus planning weights |
+| `PUT` | `/api/settings` | 🏛️ | Replace them — validated by the shared zod schema, so client and server cannot disagree |
+
+### 💬 Telegram
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/api/telegram/webhook` | 🤖 | Bot updates. Text and voice notes both become complaints through the same `createComplaintFromIntake` adapter as the web form |
+
+Returns `{ "ok": true, "ignored": "not_configured" }` when
+`TELEGRAM_BOT_TOKEN` is unset, so the route is safe to deploy before the bot
+exists.
+
+### Error envelope
+
+Every failure returns the same shape ([`shared/src/api-error.ts`](shared/src/api-error.ts)),
+so the client has one error path rather than fifteen:
+
+```json
+{ "code": "invalid_input", "message": "optional", "details": { } }
+```
+
+| Status | `code` | When |
+| --- | --- | --- |
+| `400` | `invalid_input` | zod rejected the body or query; `details` carries the flattened field errors |
+| `401` | `unauthenticated` | Missing, expired or unverifiable session cookie |
+| `403` | `forbidden` | Signed in, but the role or department scope disallows it |
+| `404` | `not_found` | No such row, or one you are not allowed to know exists |
+| `503` | — | `/api/ready` only, when the database is unreachable |
+
+### Try it
+
+```bash
+# Liveness — no auth
+curl https://nivaran-cly5.onrender.com/api/health
+
+# Readiness, including which commit is serving
+curl https://nivaran-cly5.onrender.com/api/ready
+
+# Sign in, keep the cookie, then read the national ranking
+curl -c jar.txt -X POST https://nivaran-cly5.onrender.com/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@demo.nivaran.in","password":"Admin@2026"}'
+
+curl -b jar.txt 'https://nivaran-cly5.onrender.com/api/planning/rank?limit=5'
+```
+
+> [!TIP]
+> On the free tier the first request after 15 minutes of inactivity cold-starts
+> the container and takes about 24 seconds. Everything after that answers in
+> roughly 150 ms.
 
 ## ⚙️ Configuration
 
