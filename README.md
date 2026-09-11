@@ -1348,6 +1348,6 @@ without explicit written permission from the author.
 
 **Built with care for India's civic future**
 
-[Report an Issue](https://github.com/khushboocodes/Nivaran/issues) · [View Demo](http://localhost:5173) · [Star on GitHub](https://github.com/khushboocodes/Nivaran)
+[Report an Issue](https://github.com/khushboocodes/Nivaran/issues) · [View Demo](https://nivaran-ivory.vercel.app) · [Star on GitHub](https://github.com/khushboocodes/Nivaran)
 
 </div>
