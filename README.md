@@ -24,8 +24,6 @@
 ![Warm latency](https://img.shields.io/badge/warm%20API-150ms-16a34a?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-64748b?style=flat-square)
 
-**Developer — Khushboo Khator**
-
 [Problem](#-what-is-nivaran) • [Solution](#-what-is-nivaran) • [Features](#-features) • [Setup](#-quick-start) • [Architecture](#-architecture) • [API](#-api-reference)
 
 </div>
