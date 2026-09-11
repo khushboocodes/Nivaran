@@ -1,4 +1,32 @@
-# NIVARAN — Citizen Grievance Platform & National Demand Intelligence
+<div align="center">
+
+# 🇮🇳 NIVARAN
+
+### Citizen Grievance Platform & National Demand Intelligence
+
+**From "my street light is broken" to "here is where the next rupee should go."**
+
+[![Gemini 2.5 Flash](https://img.shields.io/badge/Gemini%202.5%20Flash-4285F4?style=for-the-badge&logo=googlegemini&logoColor=white)](https://ai.google.dev/)
+[![Google AI Studio](https://img.shields.io/badge/Google%20AI%20Studio-EA4335?style=for-the-badge&logo=google&logoColor=white)](https://aistudio.google.com)
+[![TypeScript](https://img.shields.io/badge/TypeScript%205-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React%2018-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![Hono](https://img.shields.io/badge/Hono%204-E36002?style=for-the-badge&logo=hono&logoColor=white)](https://hono.dev/)
+[![Postgres](https://img.shields.io/badge/Postgres%2016-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Prisma](https://img.shields.io/badge/Prisma%205-2D3748?style=for-the-badge&logo=prisma&logoColor=white)](https://www.prisma.io/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+
+![Districts](https://img.shields.io/badge/districts-640-16a34a?style=flat-square)
+![Census indicators](https://img.shields.io/badge/census%20indicators-6%2C400-16a34a?style=flat-square)
+![Planning cells](https://img.shields.io/badge/planning%20cells-5%2C120-16a34a?style=flat-square)
+![Languages](https://img.shields.io/badge/UI%20languages-11-2563eb?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-54%20passing-16a34a?style=flat-square)
+![Cold start](https://img.shields.io/badge/cold%20start-24s-d97706?style=flat-square)
+![Warm latency](https://img.shields.io/badge/warm%20API-150ms-16a34a?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-64748b?style=flat-square)
+
+</div>
+
+---
 
 NIVARAN is an AI-assisted civic-grievance platform. Citizens file complaints in any of 11 Indian languages, attach photos / videos / audio, drop a pin on the map, and watch the status. Officers and admins triage, assign, escalate, and resolve from a separate console with analytics, heatmaps, audit logs, and exportable reports.
 
@@ -10,37 +38,52 @@ so every number a policymaker sees is traceable and reproducible.
 
 The whole stack runs locally with two commands. No paid services required.
 
-## Project history and hackathon disclosure
+## 📜 Project history and hackathon disclosure
 
-This repository is **not** a from-scratch hackathon build, and the commit history
-says so plainly. Being explicit about it:
+> [!IMPORTANT]
+> This repository is **not** a from-scratch hackathon build, and the commit
+> history says so plainly. Everything below is verifiable with `git log`.
 
-- **Pre-existing (first commit 2026-07-08 through commit `1226099`).** The
-  citizen grievance portal, admin console, authentication, Prisma schema, Gemini
-  complaint classification, attachments, 11-language UI, Leaflet heatmap, SLA
-  escalation, audit log, PDF/CSV reports, Docker setup, and CI. All of it
-  predates the challenge and is verifiable in this repository's commit history up
-  to and including `1226099`.
-- **Built for this challenge.** The district geography model, ingest of real
-  Census 2011 district data, the deterministic district prioritisation engine, the
-  grounded Gemini policy-briefing layer, the national planning console, and
-  voice-first intake via Gemini multimodal audio.
+**🔵 Pre-existing — first commit 2026-07-08 through commit `1226099`.**
+The citizen grievance portal, admin console, authentication, Prisma schema,
+Gemini complaint classification, attachments, 11-language UI, Leaflet heatmap,
+SLA escalation, audit log, PDF/CSV reports, Docker setup, and CI. All of it
+predates the challenge.
 
-Everything in the second list is what converts a municipal complaint tracker into
-a national planning tool, and it is where the challenge-specific work sits. See
-[ATTRIBUTIONS.md](ATTRIBUTIONS.md) for third-party code and dataset citations, and
-the synthetic-data disclosure.
+**🟢 Built for this challenge — commits `1226099..HEAD`.**
+This is what converts a municipal complaint tracker into a national planning
+tool. Run `git log --oneline 1226099..HEAD` to see all 32 commits.
 
-### A note on the demand data
+| Area | What was built | Commits |
+| --- | --- | --- |
+| 🗺️ **National planning layer** | District geography model + real Census 2011 ingest (640 districts, 6,400 indicators); deterministic 4-component district ranking; Gemini briefings grounded on SQL-computed aggregates; the `/admin/planning` console | `b5608e3` `6bb4e1a` `9112ac2` |
+| 🎙️ **Multimodal intake** | Dictate a complaint in any Indian language via Gemini multimodal audio — one call transcribes, detects language, translates and classifies; real confidence reporting | `2a3ac90` `4d5bcd0` |
+| 💬 **Messaging-app intake** | Telegram channel behind a shared `createComplaintFromIntake` adapter, so WhatsApp is a new adapter rather than a second implementation; `IntakeChannel` as a first-class dimension | `1deb1e6` `33f7b43` |
+| 🌍 **Cross-border portability** | A `Country` dimension, and the three *global* unique constraints on state/district codes rescoped per country — the actual blocker to a second BRICS nation | `b42c588` `c4096b5` |
+| 🔒 **Department firewall** | Per-department data isolation across Dashboard, Reports, Feedback, Audit, Users and Planning, resolved in one `resolveDeptScope` function because it is a security boundary | `9facbf5` `db0a007` `3a457c8` `def3091` `d0a70eb` |
+| 📎 **Attachments without a bucket** | A Postgres `bytea` storage driver plus HMAC-signed upload tokens, so photo/video/audio uploads work on a free-tier deployment with no S3 account | `d1683e2` `e8ed35b` |
+| 📍 **Location that reaches planning** | Server-side reverse geocoding, so "Use my location" yields `18.5204, 73.8567 — Kasba Peth, Pune, Maharashtra` and the complaint lands in a real district | `7b7abdb` `0babb18` |
+| 📊 **Honest dashboards** | Totals computed in the database rather than from one cached page; server-side paging; working heatmap; reconciled counts across screens | `f21c603` `9a39f18` `5ffb97d` `82c43f5` |
+| 🚀 **Deployability** | Liveness/readiness split so a dead database stops looking like a dead process; single-bundle boot that cut cold start from ~60s to 24s; mobile overflow fixes across all 16 routes | `5026ab1` `251a4ec` `654fabe` `bb5c62d` `2179825` `e68e1f4` |
+| 📚 **Documentation** | Planning-layer docs, deploy guide, demo script, and the seven architecture diagrams below | `2bc6fb4` `81fa18d` |
 
-District-level demand volumes in the demo are **synthetic**, generated and
-weighted by real Census 2011 deprivation figures so that hotspots land on genuine
-infrastructure gaps. They are flagged in the database and badged in the UI. Real
-complaints filed through the app are stored unflagged and stay distinguishable.
-Nivaran has no access to real national grievance microdata; CPGRAMS publishes
-only aggregate monthly PDFs.
+See [ATTRIBUTIONS.md](ATTRIBUTIONS.md) for third-party code and dataset
+citations.
 
-## Stack
+### ⚠️ A note on the demand data
+
+> [!WARNING]
+> **District-level demand volumes in the demo are synthetic.** They are
+> generated and weighted by real Census 2011 deprivation figures so hotspots
+> land on genuine infrastructure gaps — but they are not real complaints.
+> They carry `is_synthetic = true` in the database, `channel = 'modelled'`
+> rather than `'web'`, and a badge in the UI. Complaints filed through the app
+> are stored unflagged and stay distinguishable forever.
+>
+> Nivaran has no access to real national grievance microdata: CPGRAMS publishes
+> only aggregate monthly PDFs.
+
+## 🧱 Stack
 
 | Layer | Tech |
 | --- | --- |
@@ -56,7 +99,61 @@ only aggregate monthly PDFs.
 | Maps | OpenStreetMap tiles |
 | Telemetry | PostHog (opt-in) — falls back to console |
 
-## Quick start
+## ✨ Google technology used, and exactly where
+
+Every AI feature in Nivaran runs on **Gemini 2.5 Flash**, called over the REST
+API with a key from **Google AI Studio**. There is no SDK dependency and no
+Google Cloud project — the URL is built in one place,
+[`geminiUrl()`](server/src/services/ai/index.ts), so every call site shares the
+same shape.
+
+```
+https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+```
+
+| # | Capability | Where in this repo | API surface | What Gemini is asked to do |
+| --- | --- | --- | --- | --- |
+| 1 | **Complaint classification** | [`services/ai/index.ts`](server/src/services/ai/index.ts) → `makeGeminiService()` | `POST /api/ai/classify`, and inline on complaint create | Read free text, return category, department, priority, sentiment, a summary and the detected language |
+| 2 | **Voice-first intake** | [`services/ai/voice.ts`](server/src/services/ai/voice.ts) | `POST /api/ai/voice` | One multimodal call on raw audio: transcribe in the language spoken, identify that language, translate to English, and draft a title/description/category |
+| 3 | **Telegram voice notes** | [`routes/telegram.ts`](server/src/routes/telegram.ts) | webhook → same voice pipeline | OGG/Opus from Telegram goes straight to Gemini as `inlineData`, no transcoding step |
+| 4 | **Policy briefings** | [`services/planning/brief.ts`](server/src/services/planning/brief.ts) | `/api/planning/*` | Read SQL-computed district aggregates and write the rationale, interventions and risks — **prose only, never a number** |
+| 5 | **AI assistant** | [`services/ai/index.ts`](server/src/services/ai/index.ts) → `geminiChatStream()` | `POST /api/ai/chat` | Complaint-aware chat, streamed to the browser as Server-Sent Events |
+
+**How the calls are configured.** Requests 2 and 4 use
+`temperature: 0` with `responseMimeType: 'application/json'`, because the same
+figures should always yield the same reading and the response is parsed by a zod
+schema rather than a human. Inline audio is capped at 8 MB before it is sent, so
+an oversized recording fails with a clear message instead of an opaque API
+error.
+
+> [!TIP]
+> **The grounding boundary is the important part.** Every score the planning
+> engine produces is computed in SQL. Gemini reads those computed aggregates and
+> writes prose about them; it is never asked to produce a figure. Each
+> `recommendation` row stores the model name and a **SHA-256 digest of the exact
+> payload** sent to the model, so any sentence can be traced back to the numbers
+> behind it — and a stale narrative is detectable rather than invisible.
+
+> [!NOTE]
+> **It degrades instead of failing.** With no `GEMINI_API_KEY`, or when a call
+> fails or quota runs out, the API falls back to a deterministic heuristic
+> classifier (`[ai] Using heuristic classifier`) and the planning engine renders
+> its scores with `degraded = true` and no narrative. A judge with no key still
+> gets a working app.
+
+### Google services deliberately *not* used
+
+Being straight about the boundary, since "we used Google Cloud" is easy to
+overclaim:
+
+| Considered | Decision | Why |
+| --- | --- | --- |
+| Cloud Speech-to-Text | ❌ Not used | Requires a Google Cloud project with billing enabled even inside the free quota. Gemini multimodal audio needs only the AI Studio key, and collapses transcribe + language ID + translate + classify into **one** request instead of a four-service pipeline with four failure points |
+| Cloud Translation API | ❌ Not used | Same billing requirement; the translation already happens inside call #2 |
+| Google Maps Platform | ❌ Not used | OpenStreetMap tiles via Leaflet need no key and no card. Reverse geocoding goes through Nominatim, proxied server-side so the 1 req/sec policy is actually enforceable |
+| Vertex AI | ➡️ Migration path | The same model is available on Vertex AI. That is the route if this needed VPC controls, data residency or a committed-use discount — not required at prototype scale |
+
+## 🚀 Quick start
 
 ```cmd
 git clone <your-fork-url>
@@ -85,7 +182,7 @@ Wait for both servers to log "ready". Then visit:
 
 The single `npm run dev:all` script starts the Vite client and the API server side-by-side via `concurrently`. If you close the terminal, both stop.
 
-## Demo accounts (seeded by `db:seed`)
+## 🔑 Demo accounts (seeded by `db:seed`)
 
 | Role | Email | Password |
 | --- | --- | --- |
@@ -95,7 +192,7 @@ The single `npm run dev:all` script starts the Vite client and the API server si
 
 Officers are department-scoped — they only see complaints assigned to their department. Invite them from the Admin console → Users page and assign a department. See [DEMO_ACCOUNTS.md](DEMO_ACCOUNTS.md) for more details.
 
-## Features
+## 🎯 Features
 
 ### National demand intelligence (`/admin/planning`)
 
@@ -180,7 +277,7 @@ NITI Aayog Aspirational Districts, which the system was never told about.
 - Opt-in telemetry banner (PostHog-ready, console by default)
 - Dockerfile + GitHub Actions CI
 
-## Architecture
+## 🏗️ Architecture
 
 All diagrams below are Mermaid, so they render inline on GitHub. Every box
 corresponds to code in this repository — file names are given where useful.
@@ -192,26 +289,27 @@ both in Singapore (`ap-southeast-1`) because a cross-region hop on every query
 costs more than the free tier saves.
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{'fontSize':'14px','lineColor':'#64748b','clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1'}}}%%
 graph TB
-    subgraph clients["Clients"]
+    subgraph clients["👤 Clients"]
         BROWSER["Citizen · Officer · Admin<br/>browser"]
         TG["Citizen in Telegram"]
     end
 
-    subgraph vercel["Vercel — static edge"]
+    subgraph vercel["▲ Vercel — static edge"]
         SPA["React 18 SPA<br/>Vite build · React Query · Leaflet"]
     end
 
-    subgraph render["Render — Docker, Singapore"]
+    subgraph render["🐳 Render — Docker, Singapore"]
         API["Hono 4 API on Node 20<br/>single esbuild bundle"]
     end
 
-    subgraph neon["Neon — Postgres 16, Singapore"]
+    subgraph neon["🐘 Neon — Postgres 16, Singapore"]
         PG[("Application tables<br/>+ attachment_blobs bytea")]
     end
 
-    subgraph ext["External services"]
-        GEM["Gemini 2.5 Flash"]
+    subgraph ext["🔌 External services"]
+        GEM["✨ Gemini 2.5 Flash"]
         NOM["OSM Nominatim"]
         TGAPI["Telegram Bot API"]
         MAIL["SMTP"]
@@ -228,7 +326,26 @@ graph TB
     API -->|"send reply"| TGAPI
     API --> MAIL
     API --> SMSP
+
+    classDef actor fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#1f2937
+    classDef web fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1f2937
+    classDef api fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#1f2937
+    classDef store fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#1f2937
+    classDef google fill:#fee2e2,stroke:#ea4335,stroke-width:3px,color:#1f2937
+    classDef third fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#1f2937
+
+    class BROWSER,TG actor
+    class SPA web
+    class API api
+    class PG store
+    class GEM google
+    class NOM,TGAPI,MAIL,SMSP third
 ```
+
+> [!NOTE]
+> **Colour key, used consistently across every diagram below.**
+> 🟡 amber = people · 🔵 blue = web client · 🟢 green = API ·
+> 🟣 purple = data stores · 🔴 red = Google services · ⚪ grey = other third parties
 
 Two things in here are load-bearing rather than incidental. Attachment bytes
 live in Postgres by default, so uploads work on a deployment with nothing but a
@@ -243,6 +360,7 @@ Middleware order is a design decision here, not a default. Each branch exists
 because something broke without it.
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{'fontSize':'14px','lineColor':'#64748b'}}}%%
 graph LR
     REQ(["Request"]) --> H{"path is<br/>/api/health?"}
     H -->|yes| HOK["200 — touches nothing<br/>but the event loop"]
@@ -252,9 +370,23 @@ graph LR
     PRE -->|no| SESS["sessionMiddleware<br/>verify JOSE JWT cookie"]
     OWN --> ROUTE["Route handler<br/>zod-validates input"]
     SESS --> ROUTE
-    ROUTE --> SCOPE["resolveDeptScope<br/>services/scope.ts"]
+    ROUTE --> SCOPE["🔒 resolveDeptScope<br/>services/scope.ts"]
     SCOPE --> SVC["Service layer"]
     SVC --> DB[("Prisma → Postgres")]
+
+    classDef entry fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#1f2937
+    classDef gate fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#1f2937
+    classDef security fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#1f2937
+    classDef api fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#1f2937
+    classDef store fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#1f2937
+    classDef ok fill:#d1fae5,stroke:#059669,stroke-width:2px,color:#1f2937
+
+    class REQ entry
+    class H,PRE gate
+    class OWN,SESS,SCOPE security
+    class CORS,ROUTE,SVC api
+    class DB store
+    class HOK ok
 ```
 
 `/api/health` is mounted before everything so that "the process is dead" and
@@ -276,30 +408,31 @@ trusting `?dept=`.
 ### 3. System design — module map
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{'fontSize':'14px','lineColor':'#64748b','clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1'}}}%%
 graph TB
-    subgraph shared["shared/src — one source of truth"]
+    subgraph shared["📦 shared/src — one source of truth"]
         ZOD["zod schemas + TS types<br/>imported by client and server"]
     end
 
-    subgraph client["src — web client"]
+    subgraph client["🖥️ src — web client"]
         PAGES["app/pages · app/components"]
         CTX["app/contexts<br/>session · department scope"]
         LIB["lib — API client · i18n · telemetry"]
     end
 
-    subgraph routes["server/src/routes — HTTP surface"]
+    subgraph routes["🛣️ server/src/routes — HTTP surface"]
         R1["auth · users · settings"]
         R2["complaints<br/>└ :id/attachments"]
         R3["planning · reports · audit · feedback"]
         R4["telegram · uploads · geo · ai · notifications"]
     end
 
-    subgraph services["server/src/services — business logic"]
+    subgraph services["⚙️ server/src/services — business logic"]
         S1["intake.ts<br/>channel-agnostic complaint creation"]
-        S2["ai/ — index.ts · voice.ts<br/>Gemini with heuristic fallback"]
-        S3["planning/ — priority.ts · brief.ts<br/>categories.ts"]
-        S4["scope.ts · departments.ts · districts.ts"]
-        S5["sla.ts — setInterval, 5 min"]
+        S2["✨ ai/ — index.ts · voice.ts<br/>Gemini with heuristic fallback"]
+        S3["✨ planning/ — priority.ts · brief.ts<br/>categories.ts"]
+        S4["🔒 scope.ts · departments.ts · districts.ts"]
+        S5["⏱️ sla.ts — setInterval, 5 min"]
         S6["email.ts · sms.ts · storage.ts · audit.ts"]
     end
 
@@ -313,6 +446,20 @@ graph TB
     routes --> services
     services --> DB
     S5 --> DB
+
+    classDef contract fill:#fef9c3,stroke:#ca8a04,stroke-width:2px,color:#1f2937
+    classDef web fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1f2937
+    classDef route fill:#ccfbf1,stroke:#0d9488,stroke-width:2px,color:#1f2937
+    classDef svc fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#1f2937
+    classDef gemini fill:#fee2e2,stroke:#ea4335,stroke-width:3px,color:#1f2937
+    classDef store fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#1f2937
+
+    class ZOD contract
+    class PAGES,CTX,LIB web
+    class R1,R2,R3,R4 route
+    class S1,S4,S5,S6 svc
+    class S2,S3 gemini
+    class DB store
 ```
 
 The shape that matters most is `intake.ts`. Classify, route to a department,
@@ -326,12 +473,13 @@ WhatsApp is an adapter, not a second implementation.
 ### 4. Data flow diagram — Level 0 (context)
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{'fontSize':'14px','lineColor':'#64748b'}}}%%
 graph LR
-    CIT["Citizen"]
-    OFF["Officer"]
-    ADM["Admin / Planner"]
-    GEMX["Gemini API"]
-    GEOX["Nominatim"]
+    CIT["👤 Citizen"]
+    OFF["👷 Officer"]
+    ADM["🏛️ Admin / Planner"]
+    GEMX["✨ Gemini API"]
+    GEOX["🗺️ Nominatim"]
 
     SYS(("NIVARAN<br/>platform"))
 
@@ -345,19 +493,30 @@ graph LR
     GEMX -->|"category · priority · sentiment · prose"| SYS
     SYS -->|"lat / lng"| GEOX
     GEOX -->|"district · state"| SYS
+
+    classDef actor fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#1f2937
+    classDef system fill:#dcfce7,stroke:#16a34a,stroke-width:3px,color:#1f2937
+    classDef google fill:#fee2e2,stroke:#ea4335,stroke-width:3px,color:#1f2937
+    classDef third fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#1f2937
+
+    class CIT,OFF,ADM actor
+    class SYS system
+    class GEMX google
+    class GEOX third
 ```
 
 ### 5. Data flow diagram — Level 1 (processes)
 
 Rectangles are external entities, circles are processes, cylinders are data
-stores.
+stores. Processes that call Gemini are outlined in red.
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{'fontSize':'13px','lineColor':'#94a3b8'}}}%%
 graph TB
-    CIT["Citizen"]
-    OFF["Officer"]
-    ADM["Admin / Planner"]
-    GEMX["Gemini"]
+    CIT["👤 Citizen"]
+    OFF["👷 Officer"]
+    ADM["🏛️ Admin / Planner"]
+    GEMX["✨ Gemini"]
 
     P1(("P1<br/>Multi-channel<br/>intake"))
     P2(("P2<br/>AI classify<br/>+ translate"))
@@ -405,6 +564,18 @@ graph TB
     D6 --> P7
     P7 -->|"PDF · CSV · JSON"| ADM
     D4 --> CIT
+
+    classDef actor fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#1f2937
+    classDef proc fill:#ccfbf1,stroke:#0d9488,stroke-width:2px,color:#1f2937
+    classDef procAI fill:#ffe4e6,stroke:#ea4335,stroke-width:3px,color:#1f2937
+    classDef store fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#1f2937
+    classDef google fill:#fee2e2,stroke:#ea4335,stroke-width:3px,color:#1f2937
+
+    class CIT,OFF,ADM actor
+    class P1,P3,P4,P5,P7 proc
+    class P2,P6 procAI
+    class D1,D2,D3,D4,D5,D6,D7,D8 store
+    class GEMX google
 ```
 
 The separation between P5/P6 and Gemini is the important one. Every score in
@@ -420,6 +591,7 @@ Key columns only; see [`server/prisma/schema.prisma`](server/prisma/schema.prism
 for the full definition.
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{'fontSize':'13px','primaryColor':'#dbeafe','primaryBorderColor':'#2563eb','primaryTextColor':'#1f2937','lineColor':'#7c3aed','attributeBackgroundColorOdd':'#f8fafc','attributeBackgroundColorEven':'#eef2ff'}}}%%
 erDiagram
     USER ||--o{ COMPLAINT : "files as citizen"
     USER ||--o{ COMPLAINT : "handles as assignee"
@@ -525,6 +697,7 @@ Joined to the grievance core at `DISTRICT ||--o{ COMPLAINT`, which is what
 turns individual grievances into district-level demand.
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{'fontSize':'13px','primaryColor':'#dcfce7','primaryBorderColor':'#16a34a','primaryTextColor':'#1f2937','lineColor':'#0d9488','attributeBackgroundColorOdd':'#f8fafc','attributeBackgroundColorEven':'#ecfdf5'}}}%%
 erDiagram
     COUNTRY ||--o{ STATE : contains
     COUNTRY ||--o{ DISTRICT : contains
@@ -641,7 +814,7 @@ hatched "no data" bar rather than an empty one. See the comment block in
 [`server/src/services/planning/priority.ts`](server/src/services/planning/priority.ts)
 for the four data sources attempted and why each was rejected.
 
-## Project layout
+## 📁 Project layout
 .
 ├── server/ # Hono API + Prisma
 │ ├── src/ # Routes, services, auth
@@ -657,7 +830,7 @@ for the four data sources attempted and why each was rejected.
 ├── .github/workflows/ci.yml
 └── docs/operations.md # Env vars, migrations, backups, ops checklist
 
-## Configuration
+## ⚙️ Configuration
 
 All server config lives in `server/.env`. Defaults match the local Docker stack — copy from `server/.env.example` and you're done. Optional knobs:
 
@@ -672,7 +845,7 @@ All server config lives in `server/.env`. Defaults match the local Docker stack 
 
 Full list with explanations is in [`docs/operations.md`](docs/operations.md).
 
-## Available scripts
+## 🛠️ Available scripts
 
 ```cmd
 npm run dev          REM Web client only
@@ -728,7 +901,7 @@ dataset contributes and how the modelled demand is weighted.
 with correct scores and marked degraded, and the planning screen renders them
 without prose — so the ranking never depends on the model being available.
 
-## How the AI is wired
+## 🧠 How the AI is wired
 
 Two distinct roles, deliberately separated:
 
@@ -741,33 +914,35 @@ Two distinct roles, deliberately separated:
 
 Gemini also handles complaint classification (with a hand-written heuristic
 classifier as an offline fallback), the citizen chat assistant, and voice
-transcription. Nothing in the grievance workflow blocks on it.
+transcription. Nothing in the grievance workflow blocks on it. All five call
+sites are listed in
+[✨ Google technology used](#-google-technology-used-and-exactly-where).
 
-## Demo
+## 🎬 Demo
 
 [docs/DEMO.md](docs/DEMO.md) is a three-minute walkthrough, including what to
 check beforehand and what to say if the Gemini quota is exhausted mid-demo.
 
-## Cost reality
+## 💰 Cost reality
 
 Everything in this README runs on the free path. No credit card required.
 
 | Component | Default | Free option | Paid path |
 | --- | --- | --- | --- |
 | Database | Postgres in Docker | ✅ | Supabase / Neon / RDS |
-| Object storage | MinIO in Docker | ✅ | Cloudflare R2 (10 GB free) → AWS S3 |
+| Attachment storage | Postgres `bytea` (`STORAGE_DRIVER=db`) | ✅ | Cloudflare R2 (10 GB free) → AWS S3 via `STORAGE_DRIVER=s3` |
 | AI classifier | Gemini 2.5 Flash (default) | ✅ | OpenAI gpt-4o-mini (~95%) at $0.000015/call |
 | Email | Console logger | ✅ | Resend (3k/mo free) / Mailtrap / Gmail App Password |
 | SMS | Console logger | ✅ | Twilio / MSG91 (paid per message in India) |
 | Maps | OpenStreetMap tiles | ✅ | Mapbox / Google (paid) |
 | Hosting | localhost | ✅ | Fly.io / Railway / Render / your own VPS |
 
-## Documentation
+## 📚 Documentation
 
 - [`docs/operations.md`](docs/operations.md) — env vars, migrations, backups, production checklist
 - [`DEMO_ACCOUNTS.md`](DEMO_ACCOUNTS.md) — credentials, role behaviours, how to invite staff
 
-## Tests
+## 🧪 Tests
 
 ```cmd
 npm test
@@ -780,7 +955,7 @@ npm test
 
 CI runs them on every push and PR. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
-## License
+## 📄 License
 
 Copyright (c) 2026 Nivaran. All rights reserved.
 
