@@ -24,7 +24,7 @@
 ![Warm latency](https://img.shields.io/badge/warm%20API-150ms-16a34a?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-64748b?style=flat-square)
 
-[Problem](#-what-is-nivaran) • [Solution](#-what-is-nivaran) • [Features](#-features) • [Setup](#-quick-start) • [Architecture](#-architecture) • [API](#-api-reference)
+[Problem](#-the-problem) • [Solution](#-the-solution) • [Features](#-features) • [Setup](#-quick-start) • [Architecture](#-architecture) • [API](#-api-reference)
 
 </div>
 
@@ -33,6 +33,8 @@
 ## 📋 Table of Contents
 
 - [What Is Nivaran](#-nivaran)
+- [The Problem](#-the-problem)
+- [The Solution](#-the-solution)
 - [Project History & Hackathon Disclosure](#-project-history-and-hackathon-disclosure)
 - [Tech Stack](#-stack)
 - [Google Technology Used](#-google-technology-used)
@@ -58,6 +60,26 @@ is most needed. Gemini writes the policy rationale over figures that SQL compute
 so every number a policymaker sees is traceable and reproducible.
 
 The whole stack runs locally with two commands. No paid services required.
+
+---
+
+## 🔴 The Problem
+
+Municipal civic grievance resolution in India faces systemic bottlenecks across three core dimensions:
+
+- **👥 For Citizens**: Language barriers, complex portals, lack of transparency, and no simple way to report issues via voice or local messaging channels (e.g. Telegram/WhatsApp).
+- **🏛️ For Government Officers**: Unstructured complaints, lack of automatic category & priority triage, manual routing overhead, and departmental silos.
+- **🗺️ For Policymakers & Planners**: Grievance data remains locked in isolated ticket logs rather than informing national infrastructure budgets. Capital allocations often miss the districts with the greatest measured infrastructure gaps and census-backed deprivation.
+
+---
+
+## ✅ The Solution
+
+NIVARAN bridges the gap between everyday citizen complaints and national budget planning through an integrated two-tier architecture:
+
+1. **Multimodal Citizen Intake**: AI-assisted voice, text, and Telegram reporting in 11 Indian languages with automatic transcription, translation, geocoding, and department classification.
+2. **Departmental Operations Firewall**: Role-gated dashboard for officers with automatic SLA escalation, audit trails, resolution tracking, and heatmap visualization.
+3. **National Demand Intelligence Layer**: District-level aggregate analysis uniting citizen grievances with Census 2011 demographic indicators (640 districts, 6,400 metrics) and generating reproducible, SQL-grounded Gemini policy rationale briefings.
 
 ---
 
