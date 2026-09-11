@@ -24,19 +24,13 @@
 ![Warm latency](https://img.shields.io/badge/warm%20API-150ms-16a34a?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-64748b?style=flat-square)
 
+**Developer — Khushboo Khator**
+
+[Problem](#-what-is-nivaran) • [Solution](#-what-is-nivaran) • [Features](#-features) • [Setup](#-quick-start) • [Architecture](#-architecture) • [API](#-api-reference)
+
 </div>
 
 ---
-
-NIVARAN is an AI-assisted civic-grievance platform. Citizens file complaints in any of 11 Indian languages, attach photos / videos / audio, drop a pin on the map, and watch the status. Officers and admins triage, assign, escalate, and resolve from a separate console with analytics, heatmaps, audit logs, and exportable reports.
-
-On top of that intake layer sits a **national demand-intelligence layer**: citizen
-requests are aggregated to district level, joined against Census 2011 demographic
-and household-amenity data, and ranked to surface where infrastructure investment
-is most needed. Gemini writes the policy rationale over figures that SQL computes,
-so every number a policymaker sees is traceable and reproducible.
-
-The whole stack runs locally with two commands. No paid services required.
 
 ## 📋 Table of Contents
 
@@ -53,6 +47,21 @@ The whole stack runs locally with two commands. No paid services required.
 - [Tests](#-tests)
 - [Team & Acknowledgments](#-team)
 - [License](#-license)
+
+---
+
+## 🎯 What Is Nivaran
+NIVARAN is an AI-assisted civic-grievance platform. Citizens file complaints in any of 11 Indian languages, attach photos / videos / audio, drop a pin on the map, and watch the status. Officers and admins triage, assign, escalate, and resolve from a separate console with analytics, heatmaps, audit logs, and exportable reports.
+
+On top of that intake layer sits a **national demand-intelligence layer**: citizen
+requests are aggregated to district level, joined against Census 2011 demographic
+and household-amenity data, and ranked to surface where infrastructure investment
+is most needed. Gemini writes the policy rationale over figures that SQL computes,
+so every number a policymaker sees is traceable and reproducible.
+
+The whole stack runs locally with two commands. No paid services required.
+
+---
 
 ## 📜 Project history and hackathon disclosure
 
@@ -1303,6 +1312,16 @@ CI runs them on every push and PR. See [`.github/workflows/ci.yml`](.github/work
 
 ---
 
+## 📄 License
+
+Copyright (c) 2026 Nivaran. All rights reserved.
+
+This source code is made available for viewing purposes only.
+Copying, modification, distribution, or use of any kind is not permitted
+without explicit written permission from the author.
+
+---
+
 <div align="center">
 
 ### ✨ Make some difference in the society — Nivaran 🌱
@@ -1312,11 +1331,3 @@ CI runs them on every push and PR. See [`.github/workflows/ci.yml`](.github/work
 [Report an Issue](https://github.com/khushboocodes/Nivaran/issues) · [View Demo](http://localhost:5173) · [Star on GitHub](https://github.com/khushboocodes/Nivaran)
 
 </div>
-
-## 📄 License
-
-Copyright (c) 2026 Nivaran. All rights reserved.
-
-This source code is made available for viewing purposes only.
-Copying, modification, distribution, or use of any kind is not permitted
-without explicit written permission from the author.
