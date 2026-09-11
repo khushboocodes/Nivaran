@@ -38,6 +38,22 @@ so every number a policymaker sees is traceable and reproducible.
 
 The whole stack runs locally with two commands. No paid services required.
 
+## 📋 Table of Contents
+
+- [What Is Nivaran](#-nivaran)
+- [Project History & Hackathon Disclosure](#-project-history-and-hackathon-disclosure)
+- [Tech Stack](#-stack)
+- [Google Technology Used](#-google-technology-used)
+- [Quick Start](#-quick-start)
+- [Demo Accounts](#-demo-accounts)
+- [Key Features](#-features)
+- [API Reference](#-api-reference)
+- [Architecture](#-architecture)
+- [Documentation](#-documentation)
+- [Tests](#-tests)
+- [Team & Acknowledgments](#-team)
+- [License](#-license)
+
 ## 📜 Project history and hackathon disclosure
 
 > [!IMPORTANT]
@@ -1268,6 +1284,34 @@ npm test
 - AI heuristic classifier (routing, priority, sentiment, stemming, Hinglish keywords, negation)
 
 CI runs them on every push and PR. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
+## 👥 Team
+
+| Contributor | Role & Contributions |
+| :--- | :--- |
+| **Khushboo Khator** | Full-Stack Engineering, AI Pipeline & Architecture |
+
+---
+
+## 🙏 Acknowledgments
+
+- **Google AI Studio & Gemini 2.5 Flash** for multimodal voice intake, triage, and policy briefings
+- **Hono & Node.js** for high-performance backend API infrastructure
+- **Prisma & PostgreSQL** for robust relational data persistence and SQL demand aggregation
+- **Leaflet & OpenStreetMap** for geospatial heatmaps and server-side geocoding via Nominatim
+- **Vite & React** for modern, responsive frontend application development
+
+---
+
+<div align="center">
+
+### ✨ Make some difference in the society — Nivaran 🌱
+
+**Built with care for India's civic future**
+
+[Report an Issue](https://github.com/khushboocodes/Nivaran/issues) · [View Demo](http://localhost:5173) · [Star on GitHub](https://github.com/khushboocodes/Nivaran)
+
+</div>
 
 ## 📄 License
 
