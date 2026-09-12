@@ -24,7 +24,7 @@
 ![Warm latency](https://img.shields.io/badge/warm%20API-150ms-16a34a?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-64748b?style=flat-square)
 
-[Problem](#-the-problem) • [Solution](#-the-solution) • [Features](#-features) • [Setup](#-quick-start) • [Architecture](#-architecture) • [API](#-api-reference)
+[Problem](#the-problem) • [Solution](#the-solution) • [Features](#features) • [Setup](#quick-start) • [Architecture](#architecture) • [API](#api-reference)
 
 </div>
 
@@ -32,21 +32,27 @@
 
 ## 📋 Table of Contents
 
-- [What Is Nivaran](#-nivaran)
-- [The Problem](#-the-problem)
-- [The Solution](#-the-solution)
-- [Project History & Hackathon Disclosure](#-project-history-and-hackathon-disclosure)
-- [Tech Stack](#-stack)
-- [Google Technology Used](#-google-technology-used)
-- [Quick Start](#-quick-start)
-- [Demo Accounts](#-demo-accounts)
-- [Key Features](#-features)
-- [API Reference](#-api-reference)
-- [Architecture](#-architecture)
-- [Documentation](#-documentation)
-- [Tests](#-tests)
-- [Team & Acknowledgments](#-team)
-- [License](#-license)
+- [What Is Nivaran](#what-is-nivaran)
+- [The Problem](#the-problem)
+- [The Solution](#the-solution)
+- [Project History & Hackathon Disclosure](#project-history-and-hackathon-disclosure)
+- [Tech Stack](#stack)
+- [Google Technology Used](#google-technology-used)
+- [Quick Start](#quick-start)
+- [Demo Accounts](#demo-accounts)
+- [Key Features](#features)
+- [Architecture](#architecture)
+- [Project Layout](#project-layout)
+- [API Reference](#api-reference)
+- [Configuration](#configuration)
+- [Available Scripts](#available-scripts)
+- [How the AI is Wired](#how-the-ai-is-wired)
+- [Demo](#demo)
+- [Cost Reality](#cost-reality)
+- [Documentation](#documentation)
+- [Tests](#tests)
+- [Team & Acknowledgments](#team)
+- [License](#license)
 
 ---
 
@@ -128,6 +134,7 @@ citations.
 > Nivaran has no access to real national grievance microdata: CPGRAMS publishes
 > only aggregate monthly PDFs.
 
+<a id="tech-stack"></a>
 ## 🧱 Stack
 
 | Layer | Tech |
@@ -144,6 +151,7 @@ citations.
 | Maps | OpenStreetMap tiles |
 | Telemetry | PostHog (opt-in) — falls back to console |
 
+<a id="google-technology-used"></a>
 ## ✨ Google technology used, and exactly where
 
 Every AI feature in Nivaran runs on **Gemini 2.5 Flash**, called over the REST
@@ -227,6 +235,7 @@ Wait for both servers to log "ready". Then visit:
 
 The single `npm run dev:all` script starts the Vite client and the API server side-by-side via `concurrently`. If you close the terminal, both stop.
 
+<a id="demo-accounts"></a>
 ## 🔑 Demo accounts (seeded by `db:seed`)
 
 | Role | Email | Password |
@@ -237,6 +246,7 @@ The single `npm run dev:all` script starts the Vite client and the API server si
 
 Officers are department-scoped — they only see complaints assigned to their department. Invite them from the Admin console → Users page and assign a department. See [DEMO_ACCOUNTS.md](DEMO_ACCOUNTS.md) for more details.
 
+<a id="key-features"></a>
 ## 🎯 Features
 
 ### National demand intelligence (`/admin/planning`)
@@ -322,94 +332,7 @@ NITI Aayog Aspirational Districts, which the system was never told about.
 - Opt-in telemetry banner (PostHog-ready, console by default)
 - Dockerfile + GitHub Actions CI
 
-## 📡 API Reference
-
-### Health & System Probes
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `GET` | `/api/health` | Light liveness probe (event loop check) |
-| `GET` | `/api/ready` | Readiness probe (Postgres connection, git commit, uptime) |
-
-### Auth & Session
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `POST` | `/api/auth/signup` | Register a new citizen account |
-| `POST` | `/api/auth/login` | Authenticate user (returns HTTP-only JWT cookie, supports TOTP 2FA) |
-| `POST` | `/api/auth/logout` | Invalidate session & clear HTTP-only session cookie |
-| `GET` | `/api/auth/me` | Fetch current authenticated session user profile |
-| `POST` | `/api/auth/2fa/enroll` | Generate TOTP 2FA secret & OTPAuth URI (Admin role required) |
-| `POST` | `/api/auth/2fa/verify` | Verify TOTP code and finalize 2FA enrollment |
-| `POST` | `/api/auth/forgot` | Request password reset token sent via email |
-| `POST` | `/api/auth/reset` | Reset account password using one-time token |
-
-### Citizen Grievance Management
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `GET` | `/api/complaints` | Fetch complaints (supports search `q`, `page`, `pageSize`, `status`, `priority`, `dept` filter) |
-| `POST` | `/api/complaints` | Submit a new complaint (with title, category, description, language, location, geocoordinates, AI fields) |
-| `GET` | `/api/complaints/:id` | Fetch detailed complaint record by ID |
-| `PATCH` | `/api/complaints/:id` | Update complaint status, priority, category, or assigned officer |
-| `POST` | `/api/complaints/:id/escalate` | Manually escalate complaint priority to Critical |
-| `POST` | `/api/complaints/:id/resolve` | Mark complaint as resolved |
-
-### AI & Multimodal Intake
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `POST` | `/api/ai/classify` | Gemini AI triage (category, department, priority, sentiment, summary, language ID) |
-| `POST` | `/api/ai/voice` | Gemini multimodal voice intake (transcribe, detect language, translate, draft complaint) |
-| `POST` | `/api/ai/chat` | Streamed Gemini AI assistant chatbot conversation (Server-Sent Events) |
-
-### National Demand Intelligence (Planning)
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `GET` | `/api/planning/districts` | Fetch 640 Indian districts ranked by demand intensity & infrastructure gap |
-| `GET` | `/api/planning/districts/:id` | Fetch detailed district profile & Census 2011 indicators |
-| `GET` | `/api/planning/districts/:id/brief` | Grounded Gemini AI policy briefing & rationale |
-| `POST` | `/api/planning/recalculate` | Re-rank districts with custom component weights (demand, gap, investment, equity) |
-
-### Attachments & Uploads
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `PUT` | `/api/uploads/:key` | Direct byte upload for photo, video, or audio attachments (HMAC token auth) |
-| `GET` | `/api/uploads/:key` | Public media content retrieval |
-
-### User Management
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `GET` | `/api/users` | List platform users & roles (Admin only) |
-| `POST` | `/api/users/invite` | Invite new officer or staff member |
-| `PATCH` | `/api/users/:id` | Modify user role or department scope |
-| `PUT` | `/api/users/profile` | Update profile information (name, phone, city, language) |
-| `PUT` | `/api/users/password` | Change authenticated account password |
-
-### Feedback & Ratings
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `POST` | `/api/feedback` | Submit star rating (1–5) and comment on a resolved complaint |
-| `GET` | `/api/feedback` | Fetch user's submitted feedback records |
-| `GET` | `/api/feedback/stats` | Aggregate feedback statistics (average, distribution, rating by category) |
-
-### Notifications & Audit
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `GET` | `/api/notifications` | Fetch user notifications & unread badge count |
-| `POST` | `/api/notifications/:id/read` | Mark single notification as read |
-| `POST` | `/api/notifications/read-all` | Mark all notifications as read |
-| `GET` | `/api/audit` | Query audit trail log (filtered by actor, entity, date; supports CSV export) |
-
-### Reports & Analytics
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `GET` | `/api/reports` | Generate complaint report (JSON, CSV, or PDF formats) |
-| `POST` | `/api/reports/ai-summary` | Generate Gemini AI narrative summary of complaint patterns |
-
-### Admin Settings & Integrations
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `GET` | `/api/settings` | Fetch platform settings & SLA configuration |
-| `PUT` | `/api/settings` | Update system settings (notification toggles, SLA threshold, AI flags) |
-| `GET` | `/api/geo/reverse` | Reverse geocode lat/lng to Indian address and district via Nominatim proxy |
-| `POST` | `/api/telegram/webhook` | Telegram Bot API webhook for messaging intake |
+---
 
 ## 🏗️ Architecture
 
@@ -1275,7 +1198,7 @@ Gemini also handles complaint classification (with a hand-written heuristic
 classifier as an offline fallback), the citizen chat assistant, and voice
 transcription. Nothing in the grievance workflow blocks on it. All five call
 sites are listed in
-[✨ Google technology used](#-google-technology-used-and-exactly-where).
+[✨ Google technology used](#google-technology-used).
 
 ## 🎬 Demo
 
@@ -1314,6 +1237,7 @@ npm test
 
 CI runs them on every push and PR. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
+<a id="team-acknowledgments"></a>
 ## 👥 Team
 
 | Contributor | Role & Contributions |
