@@ -869,20 +869,25 @@ hatched "no data" bar rather than an empty one. See the comment block in
 for the four data sources attempted and why each was rejected.
 
 ## 📁 Project layout
+
+```text
 .
-├── server/ # Hono API + Prisma
-│ ├── src/ # Routes, services, auth
-│ ├── prisma/ # Schema, migrations, seed, backfill
-│ └── Dockerfile
-├── shared/ # zod schemas + TS types reused by client and server
-│ └── src/
-├── src/ # Web client (Vite + React)
-│ ├── app/ # Pages, layouts, contexts, components
-│ ├── lib/ # Telemetry, API client, i18n, helpers
-│ └── styles/
-├── docker-compose.yml # Postgres + MinIO
-├── .github/workflows/ci.yml
-└── docs/operations.md # Env vars, migrations, backups, ops checklist
+├── server/                      # Hono API + Prisma backend
+│   ├── src/                     # Routes, services, auth, serializers
+│   ├── prisma/                  # Schema, migrations, seed data, census ingest
+│   └── Dockerfile               # Multi-stage container definition
+├── shared/                      # Zod schemas & TypeScript types reused by client and server
+│   └── src/                     # Shared models, DTOs, enums
+├── src/                         # Web client (Vite 6 + React 18)
+│   ├── app/                     # Pages, layouts, contexts, components
+│   ├── lib/                     # Telemetry, API client, i18n, audio utilities
+│   └── styles/                  # Tailwind CSS & UI styling
+├── docker-compose.yml           # Local Postgres & MinIO services
+├── .github/workflows/ci.yml     # Automated CI pipeline (build, test, lint)
+└── docs/                        # Operations and deployment guides
+    ├── operations.md            # Environment variables, migrations, backups
+    └── DEMO.md                  # Hackathon demo walkthrough & guide
+```
 
 ## 📡 API Reference
 
