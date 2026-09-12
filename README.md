@@ -74,7 +74,7 @@ The whole stack runs locally with two commands. No paid services required.
 
 Municipal civic grievance resolution in India faces systemic bottlenecks across three core dimensions:
 
-- **👥 For Citizens**: Language barriers, complex portals, lack of transparency, and no simple way to report issues via voice or local messaging channels (e.g. Telegram/WhatsApp).
+- **👥 For Citizens**: Language barriers, complex portals, lack of transparency, and no simple way to report issues via voice or multilingual text.
 - **🏛️ For Government Officers**: Unstructured complaints, lack of automatic category & priority triage, manual routing overhead, and departmental silos.
 - **🗺️ For Policymakers & Planners**: Grievance data remains locked in isolated ticket logs rather than informing national infrastructure budgets. Capital allocations often miss the districts with the greatest measured infrastructure gaps and census-backed deprivation.
 
@@ -84,7 +84,7 @@ Municipal civic grievance resolution in India faces systemic bottlenecks across 
 
 NIVARAN bridges the gap between everyday citizen complaints and national budget planning through an integrated two-tier architecture:
 
-1. **Multimodal Citizen Intake**: AI-assisted voice, text, and Telegram reporting in 11 Indian languages with automatic transcription, translation, geocoding, and department classification.
+1. **Multimodal Citizen Intake**: AI-assisted voice and text reporting in 11 Indian languages with automatic transcription, translation, geocoding, and department classification.
 2. **Departmental Operations Firewall**: Role-gated dashboard for officers with automatic SLA escalation, audit trails, resolution tracking, and heatmap visualization.
 3. **National Demand Intelligence Layer**: District-level aggregate analysis uniting citizen grievances with Census 2011 demographic indicators (640 districts, 6,400 metrics) and generating reproducible, SQL-grounded Gemini policy rationale briefings.
 
@@ -110,7 +110,6 @@ tool. Run `git log --oneline 1226099..HEAD` to see all 32 commits.
 | --- | --- | --- |
 | 🗺️ **National planning layer** | District geography model + real Census 2011 ingest (640 districts, 6,400 indicators); deterministic 4-component district ranking; Gemini briefings grounded on SQL-computed aggregates; the `/admin/planning` console | `b5608e3` `6bb4e1a` `9112ac2` |
 | 🎙️ **Multimodal intake** | Dictate a complaint in any Indian language via Gemini multimodal audio — one call transcribes, detects language, translates and classifies; real confidence reporting | `2a3ac90` `4d5bcd0` |
-| 💬 **Messaging-app intake** | Telegram channel behind a shared `createComplaintFromIntake` adapter, so WhatsApp is a new adapter rather than a second implementation; `IntakeChannel` as a first-class dimension | `1deb1e6` `33f7b43` |
 | 🌍 **Cross-border portability** | A `Country` dimension, and the three *global* unique constraints on state/district codes rescoped per country — the actual blocker to a second BRICS nation | `b42c588` `c4096b5` |
 | 🔒 **Department firewall** | Per-department data isolation across Dashboard, Reports, Feedback, Audit, Users and Planning, resolved in one `resolveDeptScope` function because it is a security boundary | `9facbf5` `db0a007` `3a457c8` `def3091` `d0a70eb` |
 | 📎 **Attachments without a bucket** | A Postgres `bytea` storage driver plus HMAC-signed upload tokens, so photo/video/audio uploads work on a free-tier deployment with no S3 account | `d1683e2` `e8ed35b` |
@@ -167,11 +166,10 @@ https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generat
 | --- | --- | --- | --- | --- |
 | 1 | **Complaint classification** | [`services/ai/index.ts`](server/src/services/ai/index.ts) → `makeGeminiService()` | `POST /api/ai/classify`, and inline on complaint create | Read free text, return category, department, priority, sentiment, a summary and the detected language |
 | 2 | **Voice-first intake** | [`services/ai/voice.ts`](server/src/services/ai/voice.ts) | `POST /api/ai/voice` | One multimodal call on raw audio: transcribe in the language spoken, identify that language, translate to English, and draft a title/description/category |
-| 3 | **Telegram voice notes** | [`routes/telegram.ts`](server/src/routes/telegram.ts) | webhook → same voice pipeline | OGG/Opus from Telegram goes straight to Gemini as `inlineData`, no transcoding step |
-| 4 | **Policy briefings** | [`services/planning/brief.ts`](server/src/services/planning/brief.ts) | `/api/planning/*` | Read SQL-computed district aggregates and write the rationale, interventions and risks — **prose only, never a number** |
-| 5 | **AI assistant** | [`services/ai/index.ts`](server/src/services/ai/index.ts) → `geminiChatStream()` | `POST /api/ai/chat` | Complaint-aware chat, streamed to the browser as Server-Sent Events |
+| 3 | **Policy briefings** | [`services/planning/brief.ts`](server/src/services/planning/brief.ts) | `/api/planning/*` | Read SQL-computed district aggregates and write the rationale, interventions and risks — **prose only, never a number** |
+| 4 | **AI assistant** | [`services/ai/index.ts`](server/src/services/ai/index.ts) → `geminiChatStream()` | `POST /api/ai/chat` | Complaint-aware chat, streamed to the browser as Server-Sent Events |
 
-**How the calls are configured.** Requests 2 and 4 use
+**How the calls are configured.** Requests 2 and 3 use
 `temperature: 0` with `responseMimeType: 'application/json'`, because the same
 figures should always yield the same reading and the response is parsed by a zod
 schema rather than a human. Inline audio is capped at 8 MB before it is sent, so
@@ -347,7 +345,6 @@ costs more than the free tier saves.
 graph TB
     subgraph clients["👤 Clients"]
         BROWSER["Citizen · Officer · Admin<br/>browser"]
-        TG["Citizen in Telegram"]
     end
 
     subgraph vercel["▲ Vercel — static edge"]
@@ -365,19 +362,15 @@ graph TB
     subgraph ext["🔌 External services"]
         GEM["✨ Gemini 2.5 Flash"]
         NOM["OSM Nominatim"]
-        TGAPI["Telegram Bot API"]
         MAIL["SMTP"]
         SMSP["SMS provider"]
     end
 
     BROWSER --> SPA
     SPA -->|"JSON / HTTPS<br/>httpOnly JWT cookie"| API
-    TG --> TGAPI
-    TGAPI -->|"webhook + secret token"| API
     API --> PG
     API -->|"classify · translate · brief"| GEM
     API -->|"reverse geocode"| NOM
-    API -->|"send reply"| TGAPI
     API --> MAIL
     API --> SMSP
 
@@ -419,8 +412,8 @@ graph LR
     REQ(["Request"]) --> H{"path is<br/>/api/health?"}
     H -->|yes| HOK["200 — touches nothing<br/>but the event loop"]
     H -->|no| CORS["CORS<br/>PUBLIC_APP_URL · localhost · *.vercel.app"]
-    CORS --> PRE{"/api/uploads or<br/>/api/telegram?"}
-    PRE -->|yes| OWN["Carries its own auth:<br/>HMAC upload token or<br/>Telegram secret token"]
+    CORS --> PRE{"/api/uploads?"}
+    PRE -->|yes| OWN["Carries its own auth:<br/>HMAC upload token"]
     PRE -->|no| SESS["sessionMiddleware<br/>verify JOSE JWT cookie"]
     OWN --> ROUTE["Route handler<br/>zod-validates input"]
     SESS --> ROUTE
@@ -449,9 +442,8 @@ platform health check recycles a perfectly healthy container whose database is
 unreachable. `/api/ready` answers the database question separately, and also
 reports the running commit and process uptime.
 
-`/api/uploads` and `/api/telegram` sit ahead of the session middleware because
-neither has a session: the upload PUT carries a signed token, and Telegram
-authenticates with the secret it echoes on every update.
+`/api/uploads` sits ahead of the session middleware because it has no session:
+the upload PUT carries its own HMAC-signed token.
 
 `resolveDeptScope` is the authorisation boundary. An officer is pinned to their
 own department and the `?dept=` parameter is ignored for them; an officer with
@@ -478,7 +470,7 @@ graph TB
         R1["auth · users · settings"]
         R2["complaints<br/>└ :id/attachments"]
         R3["planning · reports · audit · feedback"]
-        R4["telegram · uploads · geo · ai · notifications"]
+        R4["uploads · geo · ai · notifications"]
     end
 
     subgraph services["⚙️ server/src/services — business logic"]
@@ -518,11 +510,9 @@ graph TB
 
 The shape that matters most is `intake.ts`. Classify, route to a department,
 resolve a district, persist, notify, audit — that sequence used to live inline
-in `POST /api/complaints`, which meant a second channel would either duplicate
-it or silently skip parts. A Telegram complaint that missed district resolution
-would still appear in national counters while being invisible to the planning
-layer: a bug that never throws. Every channel now calls one function, so adding
-WhatsApp is an adapter, not a second implementation.
+in `POST /api/complaints`, which meant any second intake channel would either duplicate
+it or silently skip parts. Every channel now calls one function, ensuring uniform
+classification, auditing, and district mapping.
 
 ### 4. Data flow diagram — Level 0 (context)
 
@@ -589,7 +579,7 @@ graph TB
     D7[("D7 recommendations")]
     D8[("D8 settings")]
 
-    CIT -->|"web · voice · Telegram"| P1
+    CIT -->|"web · voice"| P1
     CIT -->|"photo · video · audio"| P3
     P1 --> P2
     P2 <--> GEMX
@@ -663,7 +653,6 @@ erDiagram
     USER {
         string id PK
         string email UK
-        string telegram_chat_id UK "null for web signups"
         enum role "citizen | officer | admin"
         string password_hash "Argon2id"
         string department_id FK "null unless staff"
@@ -682,7 +671,7 @@ erDiagram
         enum status "Submitted..Resolved"
         enum priority "Low..Critical"
         enum sentiment
-        enum channel "web|voice|telegram|whatsapp|sms|modelled"
+        enum channel "web|voice|sms|modelled"
         boolean is_synthetic "true for modelled demand"
         float ai_confidence
         string source_transcript "original language, voice intake"
@@ -896,9 +885,9 @@ Every route is prefixed `/api`.
 
 **Authentication** — an `httpOnly` JWT cookie (`nivaran_session`, JOSE-signed,
 168 h TTL) set by `POST /api/auth/login`. There is no bearer-token mode; send
-cookies with `credentials: 'include'`. Two routes bypass the session middleware
-entirely because they carry their own credential: `/api/uploads` (HMAC-signed
-token) and `/api/telegram` (bot secret).
+cookies with `credentials: 'include'`. One route bypasses the session middleware
+entirely because it carries its own credential: `/api/uploads` (HMAC-signed
+token).
 
 **Access legend**
 
@@ -910,7 +899,6 @@ token) and `/api/telegram` (bot secret).
 | 👷 | Officer + Admin (citizens get `403`) |
 | 🏛️ | Admin only |
 | 🔑 | Signed token, no session |
-| 🤖 | Telegram bot secret |
 
 > [!NOTE]
 > Officers are additionally confined to **their own department** on every
@@ -1064,16 +1052,6 @@ datetimes), `page`, `pageSize` (max `200`), `format=json\|csv`, `dept`.
 | --- | --- | --- | --- |
 | `GET` | `/api/settings` | 🏛️ | AI, escalation, notification and general toggles, plus planning weights |
 | `PUT` | `/api/settings` | 🏛️ | Replace them — validated by the shared zod schema, so client and server cannot disagree |
-
-### 💬 Telegram
-
-| Method | Endpoint | Access | Purpose |
-| --- | --- | --- | --- |
-| `POST` | `/api/telegram/webhook` | 🤖 | Bot updates. Text and voice notes both become complaints through the same `createComplaintFromIntake` adapter as the web form |
-
-Returns `{ "ok": true, "ignored": "not_configured" }` when
-`TELEGRAM_BOT_TOKEN` is unset, so the route is safe to deploy before the bot
-exists.
 
 ### Error envelope
 
