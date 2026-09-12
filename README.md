@@ -24,7 +24,7 @@
 ![Warm latency](https://img.shields.io/badge/warm%20API-150ms-16a34a?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-64748b?style=flat-square)
 
-[Problem](#the-problem) • [Solution](#the-solution) • [Features](#features) • [Setup](#quick-start) • [Architecture](#architecture) • [API](#api-reference)
+[Problem](#-the-problem) • [Solution](#-the-solution) • [Features](#-features) • [Setup](#-quick-start) • [Architecture](#-architecture) • [API](#-api-reference)
 
 </div>
 
@@ -32,27 +32,28 @@
 
 ## 📋 Table of Contents
 
-- [What Is Nivaran](#what-is-nivaran)
-- [The Problem](#the-problem)
-- [The Solution](#the-solution)
-- [Project History & Hackathon Disclosure](#project-history-and-hackathon-disclosure)
-- [Tech Stack](#stack)
-- [Google Technology Used](#google-technology-used)
-- [Quick Start](#quick-start)
-- [Demo Accounts](#demo-accounts)
-- [Key Features](#features)
-- [Architecture](#architecture)
-- [Project Layout](#project-layout)
-- [API Reference](#api-reference)
-- [Configuration](#configuration)
-- [Available Scripts](#available-scripts)
-- [How the AI is Wired](#how-the-ai-is-wired)
-- [Demo](#demo)
-- [Cost Reality](#cost-reality)
-- [Documentation](#documentation)
-- [Tests](#tests)
-- [Team & Acknowledgments](#team)
-- [License](#license)
+- [What Is Nivaran](#-what-is-nivaran)
+- [The Problem](#-the-problem)
+- [The Solution](#-the-solution)
+- [Project History & Hackathon Disclosure](#-project-history-and-hackathon-disclosure)
+- [Tech Stack](#-stack)
+- [Google Technology Used](#-google-technology-used)
+- [Quick Start](#-quick-start)
+- [Demo Accounts](#-demo-accounts)
+- [Key Features](#-features)
+- [Architecture](#-architecture)
+- [Project Layout](#-project-layout)
+- [API Reference](#-api-reference)
+- [Configuration](#-configuration)
+- [Available Scripts](#-available-scripts)
+- [How the AI is Wired](#-how-the-ai-is-wired)
+- [Demo](#-demo)
+- [Cost Reality](#-cost-reality)
+- [Documentation](#-documentation)
+- [Tests](#-tests)
+- [Team](#-team)
+- [Acknowledgments](#-acknowledgments)
+- [License](#-license)
 
 ---
 
@@ -134,7 +135,6 @@ citations.
 > Nivaran has no access to real national grievance microdata: CPGRAMS publishes
 > only aggregate monthly PDFs.
 
-<a id="tech-stack"></a>
 ## 🧱 Stack
 
 | Layer | Tech |
@@ -151,8 +151,7 @@ citations.
 | Maps | OpenStreetMap tiles |
 | Telemetry | PostHog (opt-in) — falls back to console |
 
-<a id="google-technology-used"></a>
-## ✨ Google technology used, and exactly where
+## ✨ Google Technology Used
 
 Every AI feature in Nivaran runs on **Gemini 2.5 Flash**, called over the REST
 API with a key from **Google AI Studio**. There is no SDK dependency and no
@@ -235,8 +234,7 @@ Wait for both servers to log "ready". Then visit:
 
 The single `npm run dev:all` script starts the Vite client and the API server side-by-side via `concurrently`. If you close the terminal, both stop.
 
-<a id="demo-accounts"></a>
-## 🔑 Demo accounts (seeded by `db:seed`)
+## 🔑 Demo accounts
 
 | Role | Email | Password |
 | --- | --- | --- |
@@ -246,7 +244,6 @@ The single `npm run dev:all` script starts the Vite client and the API server si
 
 Officers are department-scoped — they only see complaints assigned to their department. Invite them from the Admin console → Users page and assign a department. See [DEMO_ACCOUNTS.md](DEMO_ACCOUNTS.md) for more details.
 
-<a id="key-features"></a>
 ## 🎯 Features
 
 ### National demand intelligence (`/admin/planning`)
@@ -334,7 +331,7 @@ NITI Aayog Aspirational Districts, which the system was never told about.
 
 ---
 
-## 🏗️ Architecture
+## 🏗 Architecture
 
 All diagrams below are Mermaid, so they render inline on GitHub. Every box
 corresponds to code in this repository — file names are given where useful.
@@ -1112,7 +1109,7 @@ curl -b jar.txt 'https://nivaran-cly5.onrender.com/api/planning/rank?limit=5'
 > the container and takes about 24 seconds. Everything after that answers in
 > roughly 150 ms.
 
-## ⚙️ Configuration
+## ⚙ Configuration
 
 All server config lives in `server/.env`. Defaults match the local Docker stack — copy from `server/.env.example` and you're done. Optional knobs:
 
@@ -1127,7 +1124,7 @@ All server config lives in `server/.env`. Defaults match the local Docker stack 
 
 Full list with explanations is in [`docs/operations.md`](docs/operations.md).
 
-## 🛠️ Available scripts
+## 🛠 Available scripts
 
 ```cmd
 npm run dev          REM Web client only
@@ -1198,7 +1195,7 @@ Gemini also handles complaint classification (with a hand-written heuristic
 classifier as an offline fallback), the citizen chat assistant, and voice
 transcription. Nothing in the grievance workflow blocks on it. All five call
 sites are listed in
-[✨ Google technology used](#google-technology-used).
+[✨ Google Technology Used](#-google-technology-used).
 
 ## 🎬 Demo
 
@@ -1237,7 +1234,6 @@ npm test
 
 CI runs them on every push and PR. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
-<a id="team-acknowledgments"></a>
 ## 👥 Team
 
 | Contributor | Role & Contributions |
