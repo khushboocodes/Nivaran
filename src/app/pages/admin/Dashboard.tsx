@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import { FileText, Clock, CheckCircle2, AlertTriangle, RefreshCw, TrendingUp } from 'lucide-react';
 import { Button } from '../../components/ui/button';
@@ -38,9 +38,31 @@ interface ComplaintStats {
 }
 import { useScopedComplaints, useDepartmentScope } from '../../contexts/DepartmentScopeContext';
 import { getStatusColor, getPriorityColor } from '../../../lib/badge-colors';
-import { format, subDays } from 'date-fns';
+import { format, subDays, subMonths } from 'date-fns';
+
+interface TimeOption {
+  label: string;
+  value: string;
+  days: number;
+  text: string;
+  isMonthly?: boolean;
+}
+
+const TIME_OPTIONS: readonly TimeOption[] = [
+  { label: '7D', value: '7', days: 7, text: 'Last 7 Days' },
+  { label: '14D', value: '14', days: 14, text: 'Last 14 Days' },
+  { label: '1M', value: '30', days: 30, text: 'Last 1 Month' },
+  { label: '90D', value: '90', days: 90, text: 'Last 90 Days' },
+  { label: '6M', value: '180', days: 180, text: 'Last 6 Months' },
+  { label: '1Y', value: '365', days: 365, text: 'Last 1 Year' },
+  { label: 'Monthly', value: 'monthly', days: 365, text: 'Monthly (Last 12 Months)', isMonthly: true },
+] as const;
 
 export default function AdminDashboard() {
+  const [timeRange, setTimeRange] = useState<string>('14');
+  const activeOption = TIME_OPTIONS.find((o) => o.value === timeRange) ?? TIME_OPTIONS[1];
+  const queryDays = activeOption.days;
+
   const { complaints: allComplaints, getStats, getCategoryStats, getPriorityStats } = useComplaints();
   // The complaint list is still used for the "recent complaints" table, which is
   // genuinely a page of rows. Everything numeric now comes from the server.
@@ -57,11 +79,12 @@ export default function AdminDashboard() {
    * Counting belongs in the database.
    */
   const statsQuery = useQuery<ComplaintStats>({
-    queryKey: ['complaints', 'stats', scope],
+    queryKey: ['complaints', 'stats', scope, queryDays],
     queryFn: () =>
       apiClient.get<ComplaintStats>('/complaints/stats', {
-        query: { days: 14, ...(scope !== 'all' ? { dept: scope } : {}) },
+        query: { days: queryDays, ...(scope !== 'all' ? { dept: scope } : {}) },
       }),
+    placeholderData: (previousData) => previousData,
   });
 
   const server = statsQuery.data;
@@ -85,28 +108,46 @@ export default function AdminDashboard() {
   const criticalCount = priorityStats['Critical'] ?? 0;
 
   /**
-   * Last 14 days of submission volume.
+   * Submission volume for the selected timeframe.
    *
    * The server returns only days that have complaints, so we lay those onto a
-   * complete 14-day axis. Without that, a quiet day would be omitted entirely
-   * and the chart would silently compress the timeline rather than showing a
+   * complete axis of `days` or months. Without that, a quiet day would be omitted
+   * entirely and the chart would silently compress the timeline rather than showing a
    * gap.
    */
   const volumeData = useMemo(() => {
+    const today = new Date();
+
+    if (activeOption.isMonthly) {
+      const byMonth = new Map<string, number>();
+      for (const row of server?.daily ?? []) {
+        const mKey = format(new Date(row.date), 'yyyy-MM');
+        byMonth.set(mKey, (byMonth.get(mKey) ?? 0) + row.count);
+      }
+      return Array.from({ length: 12 }, (_, i) => {
+        const mDate = subMonths(today, 11 - i);
+        const mKey = format(mDate, 'yyyy-MM');
+        return {
+          id: i + 1,
+          date: format(mDate, "MMM ''yy"),
+          value: byMonth.get(mKey) ?? 0,
+        };
+      });
+    }
+
     const byDay = new Map<string, number>();
     for (const row of server?.daily ?? []) {
       byDay.set(format(new Date(row.date), 'yyyy-MM-dd'), row.count);
     }
-    const today = new Date();
-    return Array.from({ length: 14 }, (_, i) => {
-      const day = subDays(today, 13 - i);
+    return Array.from({ length: activeOption.days }, (_, i) => {
+      const day = subDays(today, activeOption.days - 1 - i);
       return {
         id: i + 1,
         date: format(day, 'MMM d'),
         value: byDay.get(format(day, 'yyyy-MM-dd')) ?? 0,
       };
     });
-  }, [server?.daily]);
+  }, [server?.daily, activeOption]);
 
   const recentComplaints = useMemo(
     () =>
@@ -257,13 +298,53 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-5 mb-5">
           {/* Volume Chart */}
           <Card className="p-5 border-[#E5EAF3] rounded-[20px] bg-white" style={{boxShadow: '0 4px 14px rgba(15, 23, 42, 0.05)'}}>
-            <div className="mb-4">
-              <h3 className="font-semibold text-[#0F172A] mb-0.5 text-sm">Complaint Volume — Last 14 Days</h3>
-              <p className="text-xs text-[#7C8AA5]">Daily submissions tracked in real time</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 className="font-semibold text-[#0F172A] mb-0.5 text-sm">
+                  Complaint Volume — {activeOption.text}
+                </h3>
+                <p className="text-xs text-[#7C8AA5]">
+                  {activeOption.isMonthly ? 'Monthly submissions tracked over the year' : 'Daily submissions tracked in real time'}
+                </p>
+              </div>
+
+              {/* Time Range Options */}
+              <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                {/* Desktop/Tablet: Segmented pill buttons */}
+                <div className="hidden sm:inline-flex items-center gap-1 bg-[#F8FAFC] border border-[#E5EAF3] p-1 rounded-xl">
+                  {TIME_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setTimeRange(opt.value)}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
+                        timeRange === opt.value
+                          ? 'bg-[#2F5BFF] text-white shadow-sm'
+                          : 'text-[#7C8AA5] hover:text-[#0F172A] hover:bg-[#F1F5F9]'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Mobile: Compact select dropdown */}
+                <select
+                  value={timeRange}
+                  onChange={(e) => setTimeRange(e.target.value)}
+                  className="sm:hidden block h-8 px-2 text-xs font-medium text-[#0F172A] bg-white border border-[#E5EAF3] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2F5BFF]"
+                >
+                  {TIME_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.text}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="h-44">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={volumeData} key="dashboard-volume-chart">
+                <LineChart data={volumeData} key={`dashboard-volume-chart-${activeOption.value}`}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5EAF3" vertical={false} />
                   <XAxis
                     dataKey="date"
@@ -271,6 +352,7 @@ export default function AdminDashboard() {
                     fontSize={10}
                     tickLine={false}
                     axisLine={false}
+                    minTickGap={16}
                   />
                   <YAxis
                     stroke="#7C8AA5"
